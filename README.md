@@ -252,23 +252,3 @@ CREATE TABLE incremental_migration_status (
     last_historic_import_version DATE
 );
 ```
-
-## 10. Build notes
-
-The library uses **Java 25** and **Gradle 9**. `google-java-format` and `palantir-java-format` are incompatible with Java 25's internal compiler APIs at the time of writing — the library uses `eclipse()` formatter in Spotless. Add to your project's `gradle.properties` to enable Lombok and Spotless:
-
-```properties
-org.gradle.jvmargs=--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-  --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-  --add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-  --add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED \
-  --add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED \
-  --add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-  --add-opens=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED \
-  --add-opens=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED \
-  --add-opens=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-  --add-opens=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED \
-  --add-opens=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-  --add-opens=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-  --add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED
-```
