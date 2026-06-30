@@ -1,0 +1,2 @@
+de.bund.digitalservice.ris.migration.common.config.MigrationAutoConfiguration
+de.bund.digitalservice.ris.migration.common.config.S3AutoConfiguration
