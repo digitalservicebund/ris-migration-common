@@ -241,8 +241,7 @@ public record TransformedDocument(String documentNumber, String xmlContent)
 
 ## 9. Flyway migration for IncrementalMigrationStatus
 
-Add a migration file using the **next available version number** in your project
-(e.g. `V3__` if you already have `V1__` and `V2__`):
+Add a migration file:
 
 ```sql
 -- V<N>__create_incremental_migration_status.sql
@@ -253,12 +252,3 @@ CREATE TABLE incremental_migration_status (
     last_historic_import_version DATE
 );
 ```
-
-- `created_at` is filled automatically by Hibernate (`@CreationTimestamp`) — no
-  default or trigger needed in the database.
-- `last_daily_import_version` and `last_historic_import_version` are nullable; a
-  missing row means the orchestrator has no prior run to resume from and defaults
-  to processing yesterday (daily) or the most recent available month (monthly).
-- This table is **only required** if you want the orchestrator to track which days
-  have already been processed across restarts. Without it, daily mode always
-  processes exactly today.
