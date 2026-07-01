@@ -4,7 +4,7 @@ import de.bund.digitalservice.ris.migration.common.domain.IncrementalMigrationSt
 import java.util.Optional;
 
 public interface IncrementalMigrationStatusRepository {
-	Optional<IncrementalMigrationStatus> findFirstByOrderByCreatedAtDesc();
+  Optional<IncrementalMigrationStatus> findFirstByOrderByCreatedAtDesc();
 
-	IncrementalMigrationStatus save(IncrementalMigrationStatus status);
+  IncrementalMigrationStatus save(IncrementalMigrationStatus status);
 }

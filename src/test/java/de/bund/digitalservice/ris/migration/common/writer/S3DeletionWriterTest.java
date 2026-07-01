@@ -21,59 +21,57 @@ import org.springframework.batch.infrastructure.item.Chunk;
 @ExtendWith(MockitoExtension.class)
 class S3DeletionWriterTest {
 
-	@Mock
-	private S3MigrationService s3MigrationService;
-	@Mock
-	private Function<String, Optional<String>> recordFinder;
-	@Mock
-	private Consumer<String> recordDeleter;
+  @Mock private S3MigrationService s3MigrationService;
+  @Mock private Function<String, Optional<String>> recordFinder;
+  @Mock private Consumer<String> recordDeleter;
 
-	private S3DeletionWriter<String> writer;
+  private S3DeletionWriter<String> writer;
 
-	@BeforeEach
-	void setUp() {
-		writer = new S3DeletionWriter<>(s3MigrationService, recordFinder, recordDeleter, ".akn.xml");
-	}
+  @BeforeEach
+  void setUp() {
+    writer = new S3DeletionWriter<>(s3MigrationService, recordFinder, recordDeleter, ".akn.xml");
+  }
 
-	@Test
-	void write_deletesFromS3AndDatabase() throws Exception {
-		when(recordFinder.apply("DOC001")).thenReturn(Optional.of("entity-DOC001"));
+  @Test
+  void write_deletesFromS3AndDatabase() {
+    when(recordFinder.apply("DOC001")).thenReturn(Optional.of("entity-DOC001"));
 
-		writer.write(new Chunk<>(List.of(new DocumentNumberReference("DOC001"))));
+    writer.write(new Chunk<>(List.of(new DocumentNumberReference("DOC001"))));
 
-		verify(s3MigrationService).delete("DOC001.akn.xml");
-		verify(recordFinder).apply("DOC001");
-		verify(recordDeleter).accept("entity-DOC001");
-	}
+    verify(s3MigrationService).delete("DOC001.akn.xml");
+    verify(recordFinder).apply("DOC001");
+    verify(recordDeleter).accept("entity-DOC001");
+  }
 
-	@Test
-	void write_recordNotInDatabase_onlyDeletesFromS3() throws Exception {
-		when(recordFinder.apply("MISSING")).thenReturn(Optional.empty());
+  @Test
+  void write_recordNotInDatabase_onlyDeletesFromS3() {
+    when(recordFinder.apply("MISSING")).thenReturn(Optional.empty());
 
-		writer.write(new Chunk<>(List.of(new DocumentNumberReference("MISSING"))));
+    writer.write(new Chunk<>(List.of(new DocumentNumberReference("MISSING"))));
 
-		verify(s3MigrationService).delete("MISSING.akn.xml");
-		verify(recordDeleter, never()).accept(any());
-	}
+    verify(s3MigrationService).delete("MISSING.akn.xml");
+    verify(recordDeleter, never()).accept(any());
+  }
 
-	@Test
-	void write_multipleReferences_processesAll() throws Exception {
-		when(recordFinder.apply("DOC001")).thenReturn(Optional.of("entity1"));
-		when(recordFinder.apply("DOC002")).thenReturn(Optional.of("entity2"));
+  @Test
+  void write_multipleReferences_processesAll() {
+    when(recordFinder.apply("DOC001")).thenReturn(Optional.of("entity1"));
+    when(recordFinder.apply("DOC002")).thenReturn(Optional.of("entity2"));
 
-		writer.write(
-				new Chunk<>(List.of(new DocumentNumberReference("DOC001"), new DocumentNumberReference("DOC002"))));
+    writer.write(
+        new Chunk<>(
+            List.of(new DocumentNumberReference("DOC001"), new DocumentNumberReference("DOC002"))));
 
-		verify(s3MigrationService).delete("DOC001.akn.xml");
-		verify(s3MigrationService).delete("DOC002.akn.xml");
-		verify(recordDeleter).accept("entity1");
-		verify(recordDeleter).accept("entity2");
-	}
+    verify(s3MigrationService).delete("DOC001.akn.xml");
+    verify(s3MigrationService).delete("DOC002.akn.xml");
+    verify(recordDeleter).accept("entity1");
+    verify(recordDeleter).accept("entity2");
+  }
 
-	@Test
-	void write_emptyChunk_doesNothing() throws Exception {
-		writer.write(new Chunk<>(List.of()));
+  @Test
+  void write_emptyChunk_doesNothing() {
+    writer.write(new Chunk<>(List.of()));
 
-		verify(s3MigrationService, never()).delete(any());
-	}
+    verify(s3MigrationService, never()).delete(any());
+  }
 }

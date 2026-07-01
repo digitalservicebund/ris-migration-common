@@ -12,15 +12,21 @@ import org.springframework.batch.core.step.StepExecution;
 @Slf4j
 public class PrintTimeUsedStepListener implements StepExecutionListener {
 
-	private static final ZoneId ZONE = ZoneId.of("Europe/Berlin");
+  private static final ZoneId ZONE = ZoneId.of("Europe/Berlin");
 
-	@Override
-	public ExitStatus afterStep(@Nonnull StepExecution stepExecution) {
-		Duration duration = Duration.between(stepExecution.getCreateTime().atZone(ZONE).toInstant(),
-				stepExecution.getEndTime().atZone(ZONE).toInstant());
-		DecimalFormat df = new DecimalFormat("00");
-		log.info("Time needed: {}:{}:{}.{}.", df.format(duration.toHoursPart()), df.format(duration.toMinutesPart()),
-				df.format(duration.toSecondsPart()), duration.toMillisPart());
-		return null;
-	}
+  @Override
+  public ExitStatus afterStep(@Nonnull StepExecution stepExecution) {
+    Duration duration =
+        Duration.between(
+            stepExecution.getCreateTime().atZone(ZONE).toInstant(),
+            stepExecution.getEndTime().atZone(ZONE).toInstant());
+    DecimalFormat df = new DecimalFormat("00");
+    log.info(
+        "Time needed: {}:{}:{}.{}.",
+        df.format(duration.toHoursPart()),
+        df.format(duration.toMinutesPart()),
+        df.format(duration.toSecondsPart()),
+        duration.toMillisPart());
+    return null;
+  }
 }

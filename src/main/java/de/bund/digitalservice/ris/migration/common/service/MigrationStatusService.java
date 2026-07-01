@@ -13,26 +13,31 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class MigrationStatusService {
 
-	private final IncrementalMigrationStatusRepository statusRepository;
+  private final IncrementalMigrationStatusRepository statusRepository;
 
-	private static final String DAILY_VERSION_KEY = "newDailyVersion";
-	private static final String HISTORIC_VERSION_KEY = "newHistoricVersion";
+  private static final String DAILY_VERSION_KEY = "newDailyVersion";
+  private static final String HISTORIC_VERSION_KEY = "newHistoricVersion";
 
-	public void updateStatus(ExecutionContext context, String migrationType) {
-		var builder = statusRepository.findFirstByOrderByCreatedAtDesc().orElseGet(IncrementalMigrationStatus::new)
-				.toBuilder().id(null).createdAt(null);
+  public void updateStatus(ExecutionContext context, String migrationType) {
+    var builder =
+        statusRepository
+            .findFirstByOrderByCreatedAtDesc()
+            .orElseGet(IncrementalMigrationStatus::new)
+            .toBuilder()
+            .id(null)
+            .createdAt(null);
 
-		if ("daily".equalsIgnoreCase(migrationType) && context.containsKey(DAILY_VERSION_KEY)) {
-			LocalDate dailyDate = (LocalDate) context.get(DAILY_VERSION_KEY);
-			builder.lastDailyImportVersion(dailyDate);
-			log.info("Updating status with daily version: {}", dailyDate);
-		} else if (context.containsKey(HISTORIC_VERSION_KEY)) {
-			LocalDate monthlyDate = (LocalDate) context.get(HISTORIC_VERSION_KEY);
-			builder.lastHistoricImportVersion(monthlyDate);
-			builder.lastDailyImportVersion(monthlyDate);
-			log.info("Migration completed. Bridging daily version to: {}", monthlyDate);
-		}
+    if ("daily".equalsIgnoreCase(migrationType) && context.containsKey(DAILY_VERSION_KEY)) {
+      LocalDate dailyDate = (LocalDate) context.get(DAILY_VERSION_KEY);
+      builder.lastDailyImportVersion(dailyDate);
+      log.info("Updating status with daily version: {}", dailyDate);
+    } else if (context.containsKey(HISTORIC_VERSION_KEY)) {
+      LocalDate monthlyDate = (LocalDate) context.get(HISTORIC_VERSION_KEY);
+      builder.lastHistoricImportVersion(monthlyDate);
+      builder.lastDailyImportVersion(monthlyDate);
+      log.info("Migration completed. Bridging daily version to: {}", monthlyDate);
+    }
 
-		statusRepository.save(builder.build());
-	}
+    statusRepository.save(builder.build());
+  }
 }

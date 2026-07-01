@@ -15,15 +15,15 @@ import org.springframework.context.annotation.Bean;
 @EnableConfigurationProperties(MigrationJobProperties.class)
 public class MigrationAutoConfiguration {
 
-	@Bean
-	@ConditionalOnMissingBean
-	public ChangeLogService changeLogService() {
-		return new ChangeLogService();
-	}
+  @Bean
+  @ConditionalOnMissingBean
+  public ChangeLogService changeLogService() {
+    return new ChangeLogService();
+  }
 
-	@Bean
-	@ConditionalOnMissingBean
-	public ImportService importService(ObjectProvider<S3MigrationService> s3ServiceProvider) {
-		return new ImportService(s3ServiceProvider);
-	}
+  @Bean
+  @ConditionalOnMissingBean
+  public ImportService importService(ObjectProvider<S3MigrationService> s3ServiceProvider) {
+    return new ImportService(s3ServiceProvider);
+  }
 }

@@ -17,31 +17,34 @@ import org.springframework.batch.core.step.StepExecution;
 @Slf4j
 public class PrintMigrationErrorsListener implements StepExecutionListener {
 
-	private final MigrationErrorRepository migrationErrorRepository;
-	private final MigrationRecordRepository migrationRecordRepository;
+  private final MigrationErrorRepository migrationErrorRepository;
+  private final MigrationRecordRepository migrationRecordRepository;
 
-	@Override
-	public ExitStatus afterStep(@Nonnull StepExecution stepExecution) {
-		var sb = new StringBuilder("\n");
-		sb.append(StringUtils.repeat("-", 120));
-		sb.append("\n");
-		sb.append(StringUtils.rightPad(" Count", 6));
-		sb.append(" | ");
-		sb.append("Description");
-		sb.append("\n");
-		sb.append(StringUtils.repeat("-", 120));
-		List<CountedError> countedErrors = migrationErrorRepository.countAllGroupByDescription();
-		if (!countedErrors.isEmpty()) {
-			for (CountedError countedError : countedErrors) {
-				sb.append("\n").append(StringUtils.leftPad(String.valueOf(countedError.getCount()), 6)).append(" | ")
-						.append(countedError.getDescription());
-			}
-			sb.append("\n");
-			sb.append(StringUtils.repeat("-", 120));
-			long failedDocumentsCount = migrationRecordRepository
-					.countAllByMigrationStatusNot(MigrationStatus.TRANSFORMATION_SUCCEEDED);
-			log.warn("Migration errors:{}\nFailed to migrate {} documents.", sb, failedDocumentsCount);
-		}
-		return null;
-	}
+  @Override
+  public ExitStatus afterStep(@Nonnull StepExecution stepExecution) {
+    var sb = new StringBuilder("\n");
+    sb.append(StringUtils.repeat("-", 120));
+    sb.append("\n");
+    sb.append(StringUtils.rightPad(" Count", 6));
+    sb.append(" | ");
+    sb.append("Description");
+    sb.append("\n");
+    sb.append(StringUtils.repeat("-", 120));
+    List<CountedError> countedErrors = migrationErrorRepository.countAllGroupByDescription();
+    if (!countedErrors.isEmpty()) {
+      for (CountedError countedError : countedErrors) {
+        sb.append("\n")
+            .append(StringUtils.leftPad(String.valueOf(countedError.getCount()), 6))
+            .append(" | ")
+            .append(countedError.getDescription());
+      }
+      sb.append("\n");
+      sb.append(StringUtils.repeat("-", 120));
+      long failedDocumentsCount =
+          migrationRecordRepository.countAllByMigrationStatusNot(
+              MigrationStatus.TRANSFORMATION_SUCCEEDED);
+      log.warn("Migration errors:{}\nFailed to migrate {} documents.", sb, failedDocumentsCount);
+    }
+    return null;
+  }
 }

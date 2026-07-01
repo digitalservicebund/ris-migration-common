@@ -7,51 +7,54 @@ import org.junit.jupiter.api.Test;
 
 class ChangeLogServiceTest {
 
-	private ChangeLogService service;
+  private ChangeLogService service;
 
-	@BeforeEach
-	void setUp() {
-		service = new ChangeLogService();
-	}
+  @BeforeEach
+  void setUp() {
+    service = new ChangeLogService();
+  }
 
-	@Test
-	void buildChangeLog_includesChangedAndDeleted() {
-		service.addChanged("doc1.xml");
-		service.addDeleted("doc2.xml");
+  @Test
+  void buildChangeLog_includesChangedAndDeleted() {
+    service.addChanged("doc1.xml");
+    service.addDeleted("doc2.xml");
 
-		String result = service.buildChangeLog();
+    String result = service.buildChangeLog();
 
-		assertThat(result).contains("\"changed\"").contains("doc1.xml");
-		assertThat(result).contains("\"deleted\"").contains("doc2.xml");
-	}
+    assertThat(result)
+        .contains("\"changed\"")
+        .contains("doc1.xml")
+        .contains("\"deleted\"")
+        .contains("doc2.xml");
+  }
 
-	@Test
-	void buildChangeLog_clearsListsAfterBuild() {
-		service.addChanged("doc1.xml");
-		service.buildChangeLog();
+  @Test
+  void buildChangeLog_clearsListsAfterBuild() {
+    service.addChanged("doc1.xml");
+    service.buildChangeLog();
 
-		String second = service.buildChangeLog();
+    String second = service.buildChangeLog();
 
-		assertThat(second).contains("\"changed\":[]").contains("\"deleted\":[]");
-	}
+    assertThat(second).contains("\"changed\":[]").contains("\"deleted\":[]");
+  }
 
-	@Test
-	void buildChangeLogAll_returnsChangeAllFlag() {
-		service.addChanged("doc1.xml");
-		service.addDeleted("doc2.xml");
+  @Test
+  void buildChangeLogAll_returnsChangeAllFlag() {
+    service.addChanged("doc1.xml");
+    service.addDeleted("doc2.xml");
 
-		String result = service.buildChangeLogAll();
+    String result = service.buildChangeLogAll();
 
-		assertThat(result).isEqualTo("{\"change_all\":true}");
-	}
+    assertThat(result).isEqualTo("{\"change_all\":true}");
+  }
 
-	@Test
-	void buildChangeLogAll_clearsLists() {
-		service.addChanged("doc1.xml");
-		service.buildChangeLogAll();
+  @Test
+  void buildChangeLogAll_clearsLists() {
+    service.addChanged("doc1.xml");
+    service.buildChangeLogAll();
 
-		String result = service.buildChangeLog();
+    String result = service.buildChangeLog();
 
-		assertThat(result).contains("\"changed\":[]");
-	}
+    assertThat(result).contains("\"changed\":[]");
+  }
 }

@@ -19,58 +19,60 @@ import org.springframework.batch.core.step.StepExecution;
 @ExtendWith(MockitoExtension.class)
 class PrintMigrationErrorsListenerTest {
 
-	@Mock
-	private MigrationErrorRepository migrationErrorRepository;
-	@Mock
-	private MigrationRecordRepository migrationRecordRepository;
+  @Mock private MigrationErrorRepository migrationErrorRepository;
+  @Mock private MigrationRecordRepository migrationRecordRepository;
 
-	private PrintMigrationErrorsListener listener;
+  private PrintMigrationErrorsListener listener;
 
-	@BeforeEach
-	void setUp() {
-		listener = new PrintMigrationErrorsListener(migrationErrorRepository, migrationRecordRepository);
-	}
+  @BeforeEach
+  void setUp() {
+    listener =
+        new PrintMigrationErrorsListener(migrationErrorRepository, migrationRecordRepository);
+  }
 
-	@Test
-	void afterStep_noErrors_doesNotQueryRecordRepository() {
-		when(migrationErrorRepository.countAllGroupByDescription()).thenReturn(List.of());
-		var stepExecution = mock(StepExecution.class);
+  @Test
+  void afterStep_noErrors_doesNotQueryRecordRepository() {
+    when(migrationErrorRepository.countAllGroupByDescription()).thenReturn(List.of());
+    var stepExecution = mock(StepExecution.class);
 
-		listener.afterStep(stepExecution);
+    listener.afterStep(stepExecution);
 
-		verify(migrationErrorRepository).countAllGroupByDescription();
-	}
+    verify(migrationErrorRepository).countAllGroupByDescription();
+  }
 
-	@Test
-	void afterStep_withErrors_queriesFailedDocumentCount() {
-		CountedError error = new CountedError() {
-			@Override
-			public long getCount() {
-				return 5L;
-			}
+  @Test
+  void afterStep_withErrors_queriesFailedDocumentCount() {
+    CountedError error =
+        new CountedError() {
+          @Override
+          public long getCount() {
+            return 5L;
+          }
 
-			@Override
-			public String getDescription() {
-				return "Parsing failed";
-			}
-		};
-		when(migrationErrorRepository.countAllGroupByDescription()).thenReturn(List.of(error));
-		when(migrationRecordRepository.countAllByMigrationStatusNot(MigrationStatus.TRANSFORMATION_SUCCEEDED))
-				.thenReturn(3L);
-		var stepExecution = mock(StepExecution.class);
+          @Override
+          public String getDescription() {
+            return "Parsing failed";
+          }
+        };
+    when(migrationErrorRepository.countAllGroupByDescription()).thenReturn(List.of(error));
+    when(migrationRecordRepository.countAllByMigrationStatusNot(
+            MigrationStatus.TRANSFORMATION_SUCCEEDED))
+        .thenReturn(3L);
+    var stepExecution = mock(StepExecution.class);
 
-		listener.afterStep(stepExecution);
+    listener.afterStep(stepExecution);
 
-		verify(migrationRecordRepository).countAllByMigrationStatusNot(MigrationStatus.TRANSFORMATION_SUCCEEDED);
-	}
+    verify(migrationRecordRepository)
+        .countAllByMigrationStatusNot(MigrationStatus.TRANSFORMATION_SUCCEEDED);
+  }
 
-	@Test
-	void afterStep_returnsNull() {
-		when(migrationErrorRepository.countAllGroupByDescription()).thenReturn(List.of());
-		var stepExecution = mock(StepExecution.class);
+  @Test
+  void afterStep_returnsNull() {
+    when(migrationErrorRepository.countAllGroupByDescription()).thenReturn(List.of());
+    var stepExecution = mock(StepExecution.class);
 
-		var result = listener.afterStep(stepExecution);
+    var result = listener.afterStep(stepExecution);
 
-		org.assertj.core.api.Assertions.assertThat(result).isNull();
-	}
+    org.assertj.core.api.Assertions.assertThat(result).isNull();
+  }
 }

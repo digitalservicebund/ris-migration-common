@@ -23,14 +23,14 @@ import org.hibernate.annotations.CreationTimestamp;
 @Getter
 public class IncrementalMigrationStatus {
 
-	@Id
-	@GeneratedValue(strategy = GenerationType.UUID)
-	private UUID id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.UUID)
+  private UUID id;
 
-	@CreationTimestamp
-	@Column(nullable = false, updatable = false)
-	private LocalDateTime createdAt;
+  @CreationTimestamp
+  @Column(nullable = false, updatable = false)
+  private LocalDateTime createdAt;
 
-	private LocalDate lastDailyImportVersion;
-	private LocalDate lastHistoricImportVersion;
+  private LocalDate lastDailyImportVersion;
+  private LocalDate lastHistoricImportVersion;
 }

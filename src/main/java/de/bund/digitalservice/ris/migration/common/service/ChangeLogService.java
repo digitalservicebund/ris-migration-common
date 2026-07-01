@@ -11,36 +11,36 @@ import org.springframework.stereotype.Service;
 @Service
 public class ChangeLogService {
 
-	private final List<String> changed = new CopyOnWriteArrayList<>();
-	private final List<String> deleted = new CopyOnWriteArrayList<>();
-	private final JsonMapper jsonMapper = new JsonMapper();
+  private final List<String> changed = new CopyOnWriteArrayList<>();
+  private final List<String> deleted = new CopyOnWriteArrayList<>();
+  private final JsonMapper jsonMapper = new JsonMapper();
 
-	public void addChanged(String filename) {
-		changed.add(filename);
-	}
+  public void addChanged(String filename) {
+    changed.add(filename);
+  }
 
-	public void addDeleted(String filename) {
-		deleted.add(filename);
-	}
+  public void addDeleted(String filename) {
+    deleted.add(filename);
+  }
 
-	public synchronized String buildChangeLog() {
-		ObjectNode root = jsonMapper.createObjectNode();
-		ArrayNode changedArray = root.putArray("changed");
-		changed.forEach(changedArray::add);
-		changed.clear();
-		ArrayNode deletedArray = root.putArray("deleted");
-		deleted.forEach(deletedArray::add);
-		deleted.clear();
-		try {
-			return jsonMapper.writeValueAsString(root);
-		} catch (JsonProcessingException e) {
-			throw new IllegalStateException(e);
-		}
-	}
+  public synchronized String buildChangeLog() {
+    ObjectNode root = jsonMapper.createObjectNode();
+    ArrayNode changedArray = root.putArray("changed");
+    changed.forEach(changedArray::add);
+    changed.clear();
+    ArrayNode deletedArray = root.putArray("deleted");
+    deleted.forEach(deletedArray::add);
+    deleted.clear();
+    try {
+      return jsonMapper.writeValueAsString(root);
+    } catch (JsonProcessingException e) {
+      throw new IllegalStateException(e);
+    }
+  }
 
-	public String buildChangeLogAll() {
-		changed.clear();
-		deleted.clear();
-		return "{\"change_all\":true}";
-	}
+  public String buildChangeLogAll() {
+    changed.clear();
+    deleted.clear();
+    return "{\"change_all\":true}";
+  }
 }
