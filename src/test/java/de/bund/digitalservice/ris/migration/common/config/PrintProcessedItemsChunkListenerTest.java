@@ -30,7 +30,6 @@ class PrintProcessedItemsChunkListenerTest {
   @Test
   void afterChunk_emptyChunk_doesNotThrow() {
     var listener = new PrintProcessedItemsChunkListener<String, String>();
-    assertThatCode(() -> listener.afterChunk(new Chunk<>(List.of())))
-        .doesNotThrowAnyException();
+    assertThatCode(() -> listener.afterChunk(new Chunk<>(List.of()))).doesNotThrowAnyException();
   }
 }

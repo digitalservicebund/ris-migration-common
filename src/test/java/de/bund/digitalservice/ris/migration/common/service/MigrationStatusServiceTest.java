@@ -66,7 +66,8 @@ class MigrationStatusServiceTest {
     var captor = ArgumentCaptor.forClass(IncrementalMigrationStatus.class);
     verify(statusRepository).save(captor.capture());
     var saved = captor.getValue();
-    assertThat(saved.getLastHistoricImportVersion()).isEqualTo(LocalDate.of(2024, Month.DECEMBER, 26));
+    assertThat(saved.getLastHistoricImportVersion())
+        .isEqualTo(LocalDate.of(2024, Month.DECEMBER, 26));
     assertThat(saved.getLastDailyImportVersion()).isEqualTo(LocalDate.of(2024, Month.DECEMBER, 26));
   }
 
@@ -98,7 +99,8 @@ class MigrationStatusServiceTest {
     var captor = ArgumentCaptor.forClass(IncrementalMigrationStatus.class);
     verify(statusRepository).save(captor.capture());
     var saved = captor.getValue();
-    assertThat(saved.getLastHistoricImportVersion()).isEqualTo(LocalDate.of(2024, Month.DECEMBER, 1));
+    assertThat(saved.getLastHistoricImportVersion())
+        .isEqualTo(LocalDate.of(2024, Month.DECEMBER, 1));
     assertThat(saved.getLastDailyImportVersion()).isEqualTo(LocalDate.of(2025, Month.JANUARY, 10));
   }
 }

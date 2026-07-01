@@ -158,8 +158,7 @@ class S3MigrationServiceTest {
 
     service.downloadFolder("daily/prefix/", localDest.toString());
 
-    verify(sourceClient, never())
-        .getObject(any(GetObjectRequest.class), any(Path.class));
+    verify(sourceClient, never()).getObject(any(GetObjectRequest.class), any(Path.class));
   }
 
   @Test

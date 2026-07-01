@@ -12,7 +12,8 @@ class BucketPrefixBuilderTest {
   @Test
   void buildDailyPrefix_noSubPath() {
     var builder = new BucketPrefixBuilder("");
-    assertThat(builder.buildDailyPrefix(LocalDate.of(2025, Month.JANUARY, 15))).isEqualTo("daily/2025/01/15/");
+    assertThat(builder.buildDailyPrefix(LocalDate.of(2025, Month.JANUARY, 15)))
+        .isEqualTo("daily/2025/01/15/");
   }
 
   @Test
@@ -25,7 +26,8 @@ class BucketPrefixBuilderTest {
   @Test
   void buildMonthlyPrefix_noSubPath() {
     var builder = new BucketPrefixBuilder("");
-    assertThat(builder.buildMonthlyPrefix(YearMonth.of(2025, Month.MARCH))).isEqualTo("monthly/2025/03/");
+    assertThat(builder.buildMonthlyPrefix(YearMonth.of(2025, Month.MARCH)))
+        .isEqualTo("monthly/2025/03/");
   }
 
   @Test

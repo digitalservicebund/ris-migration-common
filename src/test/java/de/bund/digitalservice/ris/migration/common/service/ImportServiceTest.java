@@ -1,12 +1,11 @@
 package de.bund.digitalservice.ris.migration.common.service;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.file.Path;
-import static org.assertj.core.api.Assertions.assertThatCode;
-
 import java.time.LocalDate;
 import java.time.Month;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,7 +58,8 @@ class ImportServiceTest {
   void importData_monthlyCloudMode_downloadsFromS3() throws Exception {
     when(s3ServiceProvider.getIfAvailable()).thenReturn(s3MigrationService);
     var monthlySource =
-        new S3MigrationService.MonthlyImportSource("monthly/2025/01/", LocalDate.of(2024, Month.DECEMBER, 26));
+        new S3MigrationService.MonthlyImportSource(
+            "monthly/2025/01/", LocalDate.of(2024, Month.DECEMBER, 26));
     when(s3MigrationService.resolveMonthlyPrefix(LocalDate.of(2025, Month.JANUARY, 15)))
         .thenReturn(monthlySource);
 

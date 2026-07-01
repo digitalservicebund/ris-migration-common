@@ -82,9 +82,7 @@ class DailyMigrationOrchestratorTest {
     when(statusRepo.findFirstByOrderByCreatedAtDesc())
         .thenReturn(
             Optional.of(
-                IncrementalMigrationStatus.builder()
-                    .lastDailyImportVersion(FIXED_TODAY)
-                    .build()));
+                IncrementalMigrationStatus.builder().lastDailyImportVersion(FIXED_TODAY).build()));
 
     orchestrator.run();
 
@@ -170,6 +168,9 @@ class DailyMigrationOrchestratorTest {
   private static MigrationJobProperties buildProperties(
       String migrationType, String inputDir, String outputDir) {
     return new MigrationJobProperties(
-        new Input(inputDir), new Output(outputDir), migrationType, LocalDate.of(2020, Month.JANUARY, 1));
+        new Input(inputDir),
+        new Output(outputDir),
+        migrationType,
+        LocalDate.of(2020, Month.JANUARY, 1));
   }
 }
