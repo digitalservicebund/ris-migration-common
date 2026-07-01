@@ -26,7 +26,6 @@ dependencies {
 app:
   input:
     directory: /data/input
-    type: xml               # used by consuming project
   output:
     directory: /data/output
   migration-type: daily     # "daily" or "monthly"

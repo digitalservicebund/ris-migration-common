@@ -7,7 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record MigrationJobProperties(
     Input input, Output output, String migrationType, LocalDate monthlyStart) {
 
-  public record Input(String directory, String type) {}
+  public record Input(String directory) {}
 
   public record Output(String directory) {}
 
