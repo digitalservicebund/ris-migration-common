@@ -9,11 +9,11 @@ import org.springframework.batch.infrastructure.item.Chunk;
 @Slf4j
 public class PrintProcessedItemsChunkListener<I, O> implements ChunkListener<I, O> {
 
-	private final AtomicLong counter = new AtomicLong();
+	private final AtomicLong totalProcessed = new AtomicLong();
 
 	@Override
 	public void afterChunk(@Nonnull Chunk<O> chunk) {
-		long page = counter.incrementAndGet();
-		log.info("Processed {} items.", chunk.size() * page);
+		long total = totalProcessed.addAndGet(chunk.size());
+		log.info("Processed {} items.", total);
 	}
 }

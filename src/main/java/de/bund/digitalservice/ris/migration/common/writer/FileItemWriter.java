@@ -22,7 +22,7 @@ public class FileItemWriter<T extends MigrationOutputItem> implements ItemStream
 	private final Predicate<T> writeFilter;
 
 	public FileItemWriter(String outputDirectory, String fileExtension) {
-		this(outputDirectory, fileExtension, item -> true);
+		this(outputDirectory, fileExtension, _ -> true);
 	}
 
 	public FileItemWriter(String outputDirectory, String fileExtension, Predicate<T> writeFilter) {
@@ -49,8 +49,12 @@ public class FileItemWriter<T extends MigrationOutputItem> implements ItemStream
 	public static <T extends MigrationOutputItem> void writeToOutput(T item, String outputDirectory,
 			String fileExtension) {
 		try {
-			Files.writeString(Path.of(outputDirectory, item.getDocumentNumber() + fileExtension), item.getXmlContent(),
-					StandardCharsets.UTF_8);
+			Path outputDir = Path.of(outputDirectory).toAbsolutePath().normalize();
+			Path targetPath = outputDir.resolve(item.getDocumentNumber() + fileExtension).normalize();
+			if (!targetPath.startsWith(outputDir)) {
+				throw new IllegalArgumentException("Invalid document number: " + item.getDocumentNumber());
+			}
+			Files.writeString(targetPath, item.getXmlContent(), StandardCharsets.UTF_8);
 		} catch (IOException e) {
 			throw new UncheckedIOException(e);
 		}

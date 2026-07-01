@@ -108,7 +108,7 @@ public class S3MigrationService {
 					try {
 						downloadFile(localDest, sourcePrefix, key);
 						successCount.incrementAndGet();
-					} catch (Exception e) {
+					} catch (S3Exception | IOException e) {
 						log.error("Failed to download file: {}", key, e);
 					}
 				});
@@ -117,7 +117,11 @@ public class S3MigrationService {
 	}
 
 	private void downloadFile(String localDest, String sourcePrefix, String s3Key) throws IOException {
-		Path destinationPath = Path.of(localDest, s3Key.substring(sourcePrefix.length()));
+		Path localDestPath = Path.of(localDest).toAbsolutePath().normalize();
+		Path destinationPath = localDestPath.resolve(s3Key.substring(sourcePrefix.length())).normalize();
+		if (!destinationPath.startsWith(localDestPath)) {
+			throw new IOException("S3 key escapes destination directory: " + s3Key);
+		}
 		Path parent = destinationPath.getParent();
 		if (parent != null && Files.notExists(parent)) {
 			Files.createDirectories(parent);
