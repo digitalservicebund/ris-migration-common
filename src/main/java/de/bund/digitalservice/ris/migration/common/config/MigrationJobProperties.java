@@ -1,11 +1,10 @@
 package de.bund.digitalservice.ris.migration.common.config;
 
-import java.time.LocalDate;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "app")
 public record MigrationJobProperties(
-    Input input, Output output, String migrationType, LocalDate monthlyStart) {
+    Input input, Output output, String migrationType, int monthlyOffset) {
 
   public record Input(String directory) {}
 

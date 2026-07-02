@@ -4,6 +4,7 @@ import de.bund.digitalservice.ris.migration.common.service.BucketPrefixBuilder;
 import de.bund.digitalservice.ris.migration.common.service.ChangeLogService;
 import de.bund.digitalservice.ris.migration.common.service.S3MigrationService;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.function.Predicate;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -49,7 +50,9 @@ public class S3AutoConfiguration {
       @Qualifier("s3KeyFilter") Predicate<String> s3KeyFilter,
       @Value("${aws.bucket}") String sourceBucket,
       @Value("${aws.destination.bucket}") String destBucket,
-      @Value("${app.monthly-start}") LocalDate monthlyStart) {
+      @Value("${app.monthly-offset}") int monthlyOffset) {
+    LocalDate monthlyStart =
+        LocalDate.now(ZoneOffset.UTC).minusMonths(monthlyOffset).withDayOfMonth(1);
     return new S3MigrationService(
         sourceS3Client,
         destinationS3Client,

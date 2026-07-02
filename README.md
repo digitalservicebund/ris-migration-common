@@ -29,7 +29,7 @@ app:
   output:
     directory: /data/output
   migration-type: daily     # "daily" or "monthly"
-  monthly-start: 2022-01-01 # earliest monthly import; prevents infinite recursion
+  monthly-offset: 3         # how many months back to allow recursive monthly search
 ```
 
 ## 3. What is auto-configured
