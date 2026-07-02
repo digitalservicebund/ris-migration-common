@@ -41,9 +41,11 @@ dependencies {
   annotationProcessor("org.projectlombok:lombok")
   testImplementation("org.springframework.boot:spring-boot-starter-test")
   testImplementation("org.springframework.boot:spring-boot-starter-batch-test")
+  testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
   testCompileOnly("org.projectlombok:lombok")
   testAnnotationProcessor("org.projectlombok:lombok")
   testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+  testRuntimeOnly("com.h2database:h2")
 }
 
 tasks.withType<Test> {
