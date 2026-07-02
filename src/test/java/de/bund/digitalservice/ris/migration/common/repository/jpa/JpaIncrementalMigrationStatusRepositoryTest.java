@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import de.bund.digitalservice.ris.migration.common.domain.IncrementalMigrationStatus;
 import java.time.LocalDate;
 import java.time.Month;
-
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -31,6 +30,7 @@ class JpaIncrementalMigrationStatusRepositoryTest {
 
     assertThat(found).isPresent();
     assertThat(found.get().getId()).isEqualTo(saved.getId());
-    assertThat(found.get().getLastDailyImportVersion()).isEqualTo(LocalDate.of(2026, Month.JANUARY, 2));
+    assertThat(found.get().getLastDailyImportVersion())
+        .isEqualTo(LocalDate.of(2026, Month.JANUARY, 2));
   }
 }
