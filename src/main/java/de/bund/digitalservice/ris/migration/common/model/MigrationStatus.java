@@ -1,5 +1,9 @@
 package de.bund.digitalservice.ris.migration.common.model;
 
 public enum MigrationStatus {
-  TRANSFORMATION_SUCCEEDED
+  READ_SUCCEEDED,
+  READ_FAILED,
+  TRANSFORMATION_SUCCEEDED,
+  TRANSFORMATION_FAILED,
+  VALIDATION_FAILED
 }

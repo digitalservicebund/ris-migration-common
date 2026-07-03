@@ -22,6 +22,12 @@ class ModelTest {
 
   @Test
   void migrationStatus_values() {
-    assertThat(MigrationStatus.TRANSFORMATION_SUCCEEDED).isNotNull();
+    assertThat(MigrationStatus.values())
+        .containsExactly(
+            MigrationStatus.READ_SUCCEEDED,
+            MigrationStatus.READ_FAILED,
+            MigrationStatus.TRANSFORMATION_SUCCEEDED,
+            MigrationStatus.TRANSFORMATION_FAILED,
+            MigrationStatus.VALIDATION_FAILED);
   }
 }

@@ -1,7 +1,7 @@
 package de.bund.digitalservice.ris.migration.common.model;
 
 public interface CountedError {
-  long getCount();
+  Long getCount();
 
   String getDescription();
 }

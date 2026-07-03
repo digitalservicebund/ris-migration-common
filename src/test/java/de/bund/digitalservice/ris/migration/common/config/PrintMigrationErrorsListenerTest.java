@@ -45,7 +45,7 @@ class PrintMigrationErrorsListenerTest {
     CountedError error =
         new CountedError() {
           @Override
-          public long getCount() {
+          public Long getCount() {
             return 5L;
           }
 
