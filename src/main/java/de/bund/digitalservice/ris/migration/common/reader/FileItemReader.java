@@ -1,6 +1,6 @@
 package de.bund.digitalservice.ris.migration.common.reader;
 
-import de.bund.digitalservice.ris.migration.common.model.JurisXml;
+import de.bund.digitalservice.ris.migration.common.model.JurisDocument;
 import jakarta.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -19,7 +19,7 @@ import org.springframework.core.io.Resource;
 
 /** File item reader that reads matching files from a directory path. */
 @Slf4j
-public class FileItemReader implements ItemStreamReader<JurisXml> {
+public class FileItemReader implements ItemStreamReader<JurisDocument> {
 
   private static final String CURRENT_FILE_INDEX = "current.file.index";
 
@@ -87,11 +87,11 @@ public class FileItemReader implements ItemStreamReader<JurisXml> {
   }
 
   @Override
-  public JurisXml read() {
+  public JurisDocument read() {
     if (pathIterator != null && pathIterator.hasNext()) {
       Resource resource = new FileSystemResource(pathIterator.next());
       delegate.setResource(resource);
-      JurisXml item = delegate.read();
+      JurisDocument item = delegate.read();
       if (item != null) {
         currentFileIndex++;
       }

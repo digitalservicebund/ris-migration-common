@@ -19,6 +19,14 @@ public class MigrationStatusService {
   private static final String HISTORIC_VERSION_KEY = "newHistoricVersion";
 
   public void updateStatus(ExecutionContext context, String migrationType) {
+    boolean hasDailyVersion =
+        "daily".equalsIgnoreCase(migrationType) && context.containsKey(DAILY_VERSION_KEY);
+    boolean hasHistoricVersion = context.containsKey(HISTORIC_VERSION_KEY);
+    if (!hasDailyVersion && !hasHistoricVersion) {
+      log.debug("No new import version to record, skipping migration status update.");
+      return;
+    }
+
     var builder =
         statusRepository
             .findFirstByOrderByCreatedAtDesc()
@@ -27,11 +35,11 @@ public class MigrationStatusService {
             .id(null)
             .createdAt(null);
 
-    if ("daily".equalsIgnoreCase(migrationType) && context.containsKey(DAILY_VERSION_KEY)) {
+    if (hasDailyVersion) {
       LocalDate dailyDate = (LocalDate) context.get(DAILY_VERSION_KEY);
       builder.lastDailyImportVersion(dailyDate);
       log.info("Updating status with daily version: {}", dailyDate);
-    } else if (context.containsKey(HISTORIC_VERSION_KEY)) {
+    } else {
       LocalDate monthlyDate = (LocalDate) context.get(HISTORIC_VERSION_KEY);
       builder.lastHistoricImportVersion(monthlyDate);
       builder.lastDailyImportVersion(monthlyDate);

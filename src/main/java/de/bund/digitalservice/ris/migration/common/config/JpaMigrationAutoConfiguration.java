@@ -7,16 +7,20 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
-import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.orm.jpa.JpaTransactionManager;
 
 /**
- * Registers {@link JpaIncrementalMigrationStatusRepository} as a Spring Data bean so projects with
- * a JPA datasource get daily-mode checkpoint persistence without declaring the adapter themselves.
+ * Enables {@link MigrationStatusService} for projects with a JPA datasource. {@link
+ * JpaIncrementalMigrationStatusRepository} itself needs no explicit {@code @EnableJpaRepositories}
+ * or manual bean here: {@link MigrationAutoConfiguration}'s {@code @AutoConfigurationPackage}
+ * already registers this library's package with Spring Boot's {@code AutoConfigurationPackages}, so
+ * the consuming project's own (auto-configured) repository scan picks it up alongside its own
+ * repositories. Declaring {@code @EnableJpaRepositories} here instead would make Spring Boot back
+ * off its repository-scanning auto-configuration for the *entire* context, silently breaking the
+ * consuming project's own repository scanning.
  */
 @AutoConfiguration(after = MigrationAutoConfiguration.class)
 @ConditionalOnClass(JpaTransactionManager.class)
-@EnableJpaRepositories(basePackageClasses = JpaIncrementalMigrationStatusRepository.class)
 public class JpaMigrationAutoConfiguration {
 
   @Bean

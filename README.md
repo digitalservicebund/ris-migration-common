@@ -16,7 +16,7 @@ repositories {
 }
 
 dependencies {
-    implementation("de.bund.digitalservice.ris:ris-migration-common:1.0.0")
+    implementation("de.bund.digitalservice.ris:ris-migration-common:[VERSION]")
 }
 ```
 
@@ -153,6 +153,37 @@ public interface MigrationRecordJpaRepository
 
 The `IncrementalMigrationStatus` entity is owned by the library — no `@Entity` declaration needed in the project.
 
+### Base entities — `AbstractMigrationRecord` / `AbstractMigrationError`
+
+`MigrationRecord` and `MigrationError` can't be fully owned by the library the way
+`IncrementalMigrationStatus` is — each project's `MigrationRecord` needs its own `@OneToOne`/
+`@OneToMany` relations to project-specific entities, and JPA can't target a `@ManyToOne` at an
+abstract mapped-superclass polymorphically. Instead, extend the two `@MappedSuperclass` base
+classes, which carry the common scalar fields:
+
+```java
+@Entity
+public class MigrationRecord extends AbstractMigrationRecord {
+    @OneToOne(mappedBy = "migrationRecord", cascade = CascadeType.ALL, orphanRemoval = true)
+    private MyDocument document;
+
+    @OneToMany(mappedBy = "migrationRecord", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<MigrationError> migrationErrors = new ArrayList<>();
+}
+
+@Entity
+public class MigrationError extends AbstractMigrationError {
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "migration_record_id")
+    private MigrationRecord migrationRecord;
+}
+```
+
+`AbstractMigrationRecord` provides `id` + `migrationStatus`. `AbstractMigrationError` provides
+`id` + `type` (`MigrationErrorType.ERROR`/`WARNING`) + `description`. No Flyway changes needed
+beyond your existing `migration_record`/`migration_error` tables — the mapped-superclass fields map
+to the same column names your hand-written entities already used.
+
 ## 7. Use library components in a job
 
 ```java
@@ -223,7 +254,97 @@ public class MigrationJobConfig {
 | `PrintTimeUsedStepListener` | any step |
 | `PrintProcessedItemsChunkListener` | any chunk-oriented step |
 | `PrintMigrationErrorsListener` | the final step; needs `MigrationErrorRepository` + `MigrationRecordRepository` |
+| `NoDataFoundStepListener` | a source-reading step; sets exit status `NO_DATA_FOUND` when it (and any named companion steps) read zero items |
 | `MigrationStatusService` (call manually) | status-update tasklet after successful run |
+
+Example — a project with two source-reading steps (e.g. XML and JSON) wants `NO_DATA_FOUND` only
+when *neither* step read anything:
+
+```java
+@Bean
+public Step processJsonFilesStep(/* ... */) {
+    return new StepBuilder("processJsonFilesStep", jobRepository)
+            .<Source, Output>chunk(500)
+            // ...
+            .listener(new NoDataFoundStepListener("processXmlFilesStep"))
+            .build();
+}
+```
+
+### Deletion steps — `DeletionCsvItemReaderFactory` + `S3DeletionWriter`
+
+Reads a CSV of document numbers to delete (any column layout — only the document-number column is
+used) and pairs directly with `S3DeletionWriter`:
+
+```java
+@Bean
+public FlatFileItemReader<DocumentNumberReference> deletionReader() {
+    return DeletionCsvItemReaderFactory.create(
+            "deletionsReader",
+            new FileSystemResource(inputDirectory + "/deletions.csv"),
+            ",",
+            List.of("documentUuid", "documentNumber", "deletionDate"),
+            "documentNumber");
+}
+
+@Bean
+public Step processDeletionsStep(
+        FlatFileItemReader<DocumentNumberReference> deletionReader,
+        S3DeletionWriter<MyRecord> s3DeletionWriter) {
+    return new StepBuilder("processDeletionsStep", jobRepository)
+            .<DocumentNumberReference, DocumentNumberReference>chunk(500)
+            .reader(deletionReader)
+            .writer(s3DeletionWriter)
+            .build();
+}
+```
+
+The reader tolerates a missing file (non-strict) since a deletion CSV may not exist for every run.
+
+If your deletion CSV carries extra columns beyond the document number (e.g. a document type or
+deletion date) that downstream code needs, use the `FieldSetMapper` overload instead and implement
+`DocumentNumberReference` on your own row record — `S3DeletionWriter` only ever calls
+`documentNumber()`, so it works unchanged with any implementation:
+
+```java
+public record MyDeleteEntry(String documentNumber, String documentType, String deletedAt)
+        implements DocumentNumberReference {}
+
+@Bean
+public FlatFileItemReader<MyDeleteEntry> deletionReader() {
+    return DeletionCsvItemReaderFactory.create(
+            "deletionsReader",
+            new FileSystemResource(inputDirectory + "/deletions.csv"),
+            ",",
+            List.of("documentNumber", "documentType", "deletedAt"),
+            fieldSet -> new MyDeleteEntry(
+                    fieldSet.readString("documentNumber"),
+                    fieldSet.readString("documentType"),
+                    fieldSet.readString("deletedAt")));
+}
+```
+
+### Publish step — `PublishTasklet`
+
+Uploads the output directory to the destination bucket and sets the step's exit status to
+`MONTHLY_MIGRATION_COMPLETED` or `DAILY_MIGRATION_COMPLETED` so the job flow can branch on it (e.g.
+skip deletion handling for monthly runs). Pass `null` for `S3MigrationService` in local mode — the
+tasklet no-ops the upload but still sets the exit status.
+
+```java
+@Bean
+public Step publishStep(
+        ObjectProvider<S3MigrationService> s3ServiceProvider, MigrationJobProperties props) {
+    return new StepBuilder("publishStep", jobRepository)
+            .tasklet(
+                    new PublishTasklet(
+                            s3ServiceProvider.getIfAvailable(),
+                            props.outputDirectory(),
+                            props.migrationType()),
+                    transactionManager)
+            .build();
+}
+```
 
 ## 8. Output items
 

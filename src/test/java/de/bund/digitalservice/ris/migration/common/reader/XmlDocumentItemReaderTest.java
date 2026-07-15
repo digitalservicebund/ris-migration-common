@@ -3,7 +3,7 @@ package de.bund.digitalservice.ris.migration.common.reader;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import de.bund.digitalservice.ris.migration.common.model.JurisXml;
+import de.bund.digitalservice.ris.migration.common.model.JurisDocument;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.infrastructure.item.ParseException;
@@ -23,7 +23,7 @@ class XmlDocumentItemReaderTest {
   void read_xmlFile_returnsParsedDocument() {
     reader.setResource(new ClassPathResource("test-document.xml"));
 
-    JurisXml result = reader.read();
+    JurisDocument result = reader.read();
 
     assertThat(result).isNotNull();
     assertThat(result.document()).isNotNull();
@@ -35,7 +35,7 @@ class XmlDocumentItemReaderTest {
   void read_jsonFile_returnsNullDocument() {
     reader.setResource(new ClassPathResource("test-document.json"));
 
-    JurisXml result = reader.read();
+    JurisDocument result = reader.read();
 
     assertThat(result).isNotNull();
     assertThat(result.document()).isNull();
@@ -47,14 +47,14 @@ class XmlDocumentItemReaderTest {
     reader.setResource(new ClassPathResource("test-document.xml"));
 
     reader.read();
-    JurisXml second = reader.read();
+    JurisDocument second = reader.read();
 
     assertThat(second).isNull();
   }
 
   @Test
   void read_noResourceSet_returnsNull() {
-    JurisXml result = reader.read();
+    JurisDocument result = reader.read();
     assertThat(result).isNull();
   }
 
@@ -78,7 +78,7 @@ class XmlDocumentItemReaderTest {
     reader.read();
 
     reader.setResource(new ClassPathResource("test-document.xml"));
-    JurisXml result = reader.read();
+    JurisDocument result = reader.read();
 
     assertThat(result).isNotNull();
   }

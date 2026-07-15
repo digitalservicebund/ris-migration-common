@@ -2,6 +2,7 @@ package de.bund.digitalservice.ris.migration.common.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -72,13 +73,23 @@ class MigrationStatusServiceTest {
   }
 
   @Test
-  void updateStatus_noContextKeys_stillSaves() {
-    when(statusRepository.findFirstByOrderByCreatedAtDesc()).thenReturn(Optional.empty());
-    when(statusRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
+  void updateStatus_noContextKeys_skipsSave() {
     service.updateStatus(new ExecutionContext(), "daily");
 
-    verify(statusRepository).save(any());
+    verify(statusRepository, never()).save(any());
+  }
+
+  @Test
+  void updateStatus_monthlyMigrationType_dailyVersionKeyPresent_ignoresDailyKey() {
+    // "newDailyVersion" is only honored when migrationType is "daily" (see
+    // updateStatus_daily_savesNewRecordWithDailyVersion); a monthly run with no historic key
+    // present must skip the save even if a stray daily key exists in the context.
+    var context = new ExecutionContext();
+    context.put("newDailyVersion", LocalDate.of(2025, Month.JANUARY, 15));
+
+    service.updateStatus(context, "monthly");
+
+    verify(statusRepository, never()).save(any());
   }
 
   @Test

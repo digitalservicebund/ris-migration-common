@@ -8,16 +8,16 @@ class ModelTest {
 
   @Test
   void documentNumberReference_recordAccessor() {
-    var ref = new DocumentNumberReference("DOC001");
+    var ref = DocumentNumberReference.of("DOC001");
     assertThat(ref.documentNumber()).isEqualTo("DOC001");
   }
 
   @Test
-  void jurisXml_recordAccessors() {
-    var xml = new JurisXml("file.xml", "<root/>", null);
-    assertThat(xml.filename()).isEqualTo("file.xml");
-    assertThat(xml.content()).isEqualTo("<root/>");
-    assertThat(xml.document()).isNull();
+  void jurisDocument_recordAccessors() {
+    var doc = new JurisDocument("file.xml", "<root/>", null);
+    assertThat(doc.filename()).isEqualTo("file.xml");
+    assertThat(doc.content()).isEqualTo("<root/>");
+    assertThat(doc.document()).isNull();
   }
 
   @Test
@@ -29,5 +29,11 @@ class ModelTest {
             MigrationStatus.TRANSFORMATION_SUCCEEDED,
             MigrationStatus.TRANSFORMATION_FAILED,
             MigrationStatus.VALIDATION_FAILED);
+  }
+
+  @Test
+  void migrationErrorType_values() {
+    assertThat(MigrationErrorType.values())
+        .containsExactly(MigrationErrorType.ERROR, MigrationErrorType.WARNING);
   }
 }

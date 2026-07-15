@@ -2,7 +2,7 @@ package de.bund.digitalservice.ris.migration.common.reader;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import de.bund.digitalservice.ris.migration.common.model.JurisXml;
+import de.bund.digitalservice.ris.migration.common.model.JurisDocument;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,9 +27,9 @@ class FileItemReaderTest {
     var reader = new FileItemReader(dir.toString(), delegate, ".xml");
     reader.open(new ExecutionContext());
 
-    JurisXml first = reader.read();
-    JurisXml second = reader.read();
-    JurisXml third = reader.read();
+    JurisDocument first = reader.read();
+    JurisDocument second = reader.read();
+    JurisDocument third = reader.read();
 
     reader.close();
 
@@ -44,7 +44,7 @@ class FileItemReaderTest {
     var context = new ExecutionContext();
     reader.open(context);
 
-    JurisXml result = reader.read();
+    JurisDocument result = reader.read();
     reader.close();
 
     assertThat(result).isNull();
@@ -59,8 +59,8 @@ class FileItemReaderTest {
     var reader = new FileItemReader(dir.toString(), delegate, ".xml");
     reader.open(new ExecutionContext());
 
-    JurisXml item = reader.read();
-    JurisXml noMore = reader.read();
+    JurisDocument item = reader.read();
+    JurisDocument noMore = reader.read();
     reader.close();
 
     assertThat(item).isNotNull();
@@ -93,8 +93,8 @@ class FileItemReaderTest {
     var reader = new FileItemReader(dir.toString(), delegate, ".xml");
     reader.open(context);
 
-    JurisXml item = reader.read();
-    JurisXml none = reader.read();
+    JurisDocument item = reader.read();
+    JurisDocument none = reader.read();
     reader.close();
 
     assertThat(item).isNotNull();
@@ -111,8 +111,8 @@ class FileItemReaderTest {
             dir.toString(), delegate, path -> path.getFileName().toString().startsWith("include"));
     reader.open(new ExecutionContext());
 
-    JurisXml item = reader.read();
-    JurisXml none = reader.read();
+    JurisDocument item = reader.read();
+    JurisDocument none = reader.read();
     reader.close();
 
     assertThat(item).isNotNull();

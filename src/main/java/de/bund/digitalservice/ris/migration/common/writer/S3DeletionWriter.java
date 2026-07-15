@@ -12,7 +12,9 @@ import org.springframework.batch.infrastructure.item.ItemWriter;
 
 /**
  * Deletes documents from S3 and removes corresponding records from the database. Project wires via
- * constructor lambdas so the library stays decoupled from project-specific entity types.
+ * constructor lambdas so the library stays decoupled from project-specific entity types. No-op for
+ * the S3 delete when {@code s3MigrationService} is {@code null} (local mode, no cloud profile
+ * active) — the database deletion still runs.
  */
 @RequiredArgsConstructor
 @Slf4j
@@ -28,8 +30,12 @@ public class S3DeletionWriter<T> implements ItemWriter<DocumentNumberReference> 
     for (DocumentNumberReference ref : chunk) {
       String documentNumber = ref.documentNumber();
       String filename = documentNumber + fileExtension;
-      s3MigrationService.delete(filename);
-      log.info("Removed documentation unit {} from bucket.", filename);
+      if (s3MigrationService == null) {
+        log.info("Local mode: skipping S3 delete for {}", filename);
+      } else {
+        s3MigrationService.delete(filename);
+        log.info("Removed documentation unit {} from bucket.", filename);
+      }
       recordFinder
           .apply(documentNumber)
           .ifPresentOrElse(
