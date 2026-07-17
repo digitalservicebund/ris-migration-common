@@ -11,12 +11,11 @@ import static org.mockito.Mockito.when;
 import de.bund.digitalservice.ris.migration.common.config.MigrationJobProperties;
 import de.bund.digitalservice.ris.migration.common.config.MigrationJobProperties.Input;
 import de.bund.digitalservice.ris.migration.common.config.MigrationJobProperties.Output;
-import de.bund.digitalservice.ris.migration.common.domain.IncrementalMigrationStatus;
-import de.bund.digitalservice.ris.migration.common.repository.IncrementalMigrationStatusRepository;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.Month;
 import java.util.Optional;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
@@ -26,15 +25,13 @@ import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.launch.JobOperator;
-import org.springframework.beans.factory.ObjectProvider;
 
 @ExtendWith(MockitoExtension.class)
 class DailyMigrationOrchestratorTest {
 
   @Mock private Job migrationJob;
   @Mock private JobOperator jobOperator;
-  @Mock private ObjectProvider<IncrementalMigrationStatusRepository> statusRepoProvider;
-  @Mock private IncrementalMigrationStatusRepository statusRepo;
+  @Mock private Supplier<Optional<LocalDate>> lastDailyVersionSupplier;
   @Mock private JobExecution jobExecution;
 
   private static final LocalDate FIXED_TODAY = LocalDate.of(2025, Month.JUNE, 1);
@@ -43,7 +40,8 @@ class DailyMigrationOrchestratorTest {
   void run_monthlyMode_runsJobOnce(@TempDir Path input, @TempDir Path output) throws Exception {
     var properties = buildProperties("monthly", input.toString(), output.toString());
     var orchestrator =
-        new DailyMigrationOrchestrator(migrationJob, jobOperator, statusRepoProvider, properties);
+        new DailyMigrationOrchestrator(
+            migrationJob, jobOperator, lastDailyVersionSupplier, properties);
 
     when(jobOperator.start(eq(migrationJob), any())).thenReturn(jobExecution);
     when(jobExecution.getExitStatus()).thenReturn(ExitStatus.COMPLETED);
@@ -58,7 +56,8 @@ class DailyMigrationOrchestratorTest {
       throws Exception {
     var properties = buildProperties("monthly", input.toString(), output.toString());
     var orchestrator =
-        new DailyMigrationOrchestrator(migrationJob, jobOperator, statusRepoProvider, properties);
+        new DailyMigrationOrchestrator(
+            migrationJob, jobOperator, lastDailyVersionSupplier, properties);
 
     when(jobOperator.start(eq(migrationJob), any())).thenReturn(jobExecution);
     when(jobExecution.getExitStatus()).thenReturn(ExitStatus.FAILED);
@@ -71,18 +70,15 @@ class DailyMigrationOrchestratorTest {
       throws Exception {
     var properties = buildProperties("daily", input.toString(), output.toString());
     var orchestrator =
-        new DailyMigrationOrchestrator(migrationJob, jobOperator, statusRepoProvider, properties) {
+        new DailyMigrationOrchestrator(
+            migrationJob, jobOperator, lastDailyVersionSupplier, properties) {
           @Override
           protected LocalDate today() {
             return FIXED_TODAY;
           }
         };
 
-    when(statusRepoProvider.getIfAvailable()).thenReturn(statusRepo);
-    when(statusRepo.findFirstByOrderByCreatedAtDesc())
-        .thenReturn(
-            Optional.of(
-                IncrementalMigrationStatus.builder().lastDailyImportVersion(FIXED_TODAY).build()));
+    when(lastDailyVersionSupplier.get()).thenReturn(Optional.of(FIXED_TODAY));
 
     orchestrator.run();
 
@@ -97,20 +93,15 @@ class DailyMigrationOrchestratorTest {
       throws Exception {
     var properties = buildProperties("daily", input.toString(), output.toString());
     var orchestrator =
-        new DailyMigrationOrchestrator(migrationJob, jobOperator, statusRepoProvider, properties) {
+        new DailyMigrationOrchestrator(
+            migrationJob, jobOperator, lastDailyVersionSupplier, properties) {
           @Override
           protected LocalDate today() {
             return FIXED_TODAY;
           }
         };
 
-    when(statusRepoProvider.getIfAvailable()).thenReturn(statusRepo);
-    when(statusRepo.findFirstByOrderByCreatedAtDesc())
-        .thenReturn(
-            Optional.of(
-                IncrementalMigrationStatus.builder()
-                    .lastDailyImportVersion(FIXED_TODAY.minusDays(2))
-                    .build()));
+    when(lastDailyVersionSupplier.get()).thenReturn(Optional.of(FIXED_TODAY.minusDays(2)));
     when(jobOperator.start(eq(migrationJob), any())).thenReturn(jobExecution);
     when(jobExecution.getExitStatus()).thenReturn(ExitStatus.COMPLETED);
 
@@ -120,13 +111,14 @@ class DailyMigrationOrchestratorTest {
   }
 
   @Test
-  void run_dailyMode_noStatusRepo_defaultsToYesterday(@TempDir Path input, @TempDir Path output)
-      throws Exception {
+  void run_dailyMode_noStatusAvailable_defaultsToYesterday(
+      @TempDir Path input, @TempDir Path output) throws Exception {
     var properties = buildProperties("daily", input.toString(), output.toString());
     var orchestrator =
-        new DailyMigrationOrchestrator(migrationJob, jobOperator, statusRepoProvider, properties);
+        new DailyMigrationOrchestrator(
+            migrationJob, jobOperator, lastDailyVersionSupplier, properties);
 
-    when(statusRepoProvider.getIfAvailable()).thenReturn(null);
+    when(lastDailyVersionSupplier.get()).thenReturn(Optional.empty());
     when(jobOperator.start(eq(migrationJob), any())).thenReturn(jobExecution);
     when(jobExecution.getExitStatus()).thenReturn(ExitStatus.COMPLETED);
 
@@ -140,9 +132,10 @@ class DailyMigrationOrchestratorTest {
       @TempDir Path input, @TempDir Path output) throws Exception {
     var properties = buildProperties("daily", input.toString(), output.toString());
     var orchestrator =
-        new DailyMigrationOrchestrator(migrationJob, jobOperator, statusRepoProvider, properties);
+        new DailyMigrationOrchestrator(
+            migrationJob, jobOperator, lastDailyVersionSupplier, properties);
 
-    when(statusRepoProvider.getIfAvailable()).thenReturn(null);
+    when(lastDailyVersionSupplier.get()).thenReturn(Optional.empty());
     when(jobOperator.start(eq(migrationJob), any())).thenReturn(jobExecution);
     when(jobExecution.getExitStatus()).thenReturn(new ExitStatus("NO_DATA_FOUND"));
 
@@ -156,9 +149,10 @@ class DailyMigrationOrchestratorTest {
       throws Exception {
     var properties = buildProperties("daily", input.toString(), output.toString());
     var orchestrator =
-        new DailyMigrationOrchestrator(migrationJob, jobOperator, statusRepoProvider, properties);
+        new DailyMigrationOrchestrator(
+            migrationJob, jobOperator, lastDailyVersionSupplier, properties);
 
-    when(statusRepoProvider.getIfAvailable()).thenReturn(null);
+    when(lastDailyVersionSupplier.get()).thenReturn(Optional.empty());
     when(jobOperator.start(eq(migrationJob), any())).thenReturn(jobExecution);
     when(jobExecution.getExitStatus()).thenReturn(ExitStatus.FAILED);
 

@@ -1,20 +1,13 @@
 package de.bund.digitalservice.ris.migration.common.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
-import de.bund.digitalservice.ris.migration.common.domain.IncrementalMigrationStatus;
-import de.bund.digitalservice.ris.migration.common.repository.IncrementalMigrationStatusRepository;
 import java.time.LocalDate;
 import java.time.Month;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.batch.infrastructure.item.ExecutionContext;
@@ -22,96 +15,56 @@ import org.springframework.batch.infrastructure.item.ExecutionContext;
 @ExtendWith(MockitoExtension.class)
 class MigrationStatusServiceTest {
 
-  @Mock private IncrementalMigrationStatusRepository statusRepository;
+  @Mock private MigrationStatusUpdater updater;
 
   private MigrationStatusService service;
 
   @BeforeEach
   void setUp() {
-    service = new MigrationStatusService(statusRepository);
+    service = new MigrationStatusService(updater);
   }
 
   @Test
-  void updateStatus_daily_savesNewRecordWithDailyVersion() {
-    when(statusRepository.findFirstByOrderByCreatedAtDesc())
-        .thenReturn(
-            Optional.of(
-                IncrementalMigrationStatus.builder()
-                    .lastDailyImportVersion(LocalDate.of(2025, Month.JANUARY, 1))
-                    .build()));
-    when(statusRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
+  void updateStatus_daily_delegatesToUpdaterWithDailyVersion() {
     var context = new ExecutionContext();
     context.put("newDailyVersion", LocalDate.of(2025, Month.JANUARY, 15));
 
     service.updateStatus(context, "daily");
 
-    var captor = ArgumentCaptor.forClass(IncrementalMigrationStatus.class);
-    verify(statusRepository).save(captor.capture());
-    var saved = captor.getValue();
-    assertThat(saved.getLastDailyImportVersion()).isEqualTo(LocalDate.of(2025, Month.JANUARY, 15));
-    assertThat(saved.getId()).isNull();
-    assertThat(saved.getCreatedAt()).isNull();
+    verify(updater).updateDaily(LocalDate.of(2025, Month.JANUARY, 15));
+    verify(updater, never()).updateHistoricAndDaily(org.mockito.ArgumentMatchers.any());
   }
 
   @Test
-  void updateStatus_monthly_savesNewRecordWithHistoricAndDailyVersion() {
-    when(statusRepository.findFirstByOrderByCreatedAtDesc()).thenReturn(Optional.empty());
-    when(statusRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
+  void updateStatus_monthly_delegatesToUpdaterWithHistoricVersion() {
     var context = new ExecutionContext();
     context.put("newHistoricVersion", LocalDate.of(2024, Month.DECEMBER, 26));
 
     service.updateStatus(context, "monthly");
 
-    var captor = ArgumentCaptor.forClass(IncrementalMigrationStatus.class);
-    verify(statusRepository).save(captor.capture());
-    var saved = captor.getValue();
-    assertThat(saved.getLastHistoricImportVersion())
-        .isEqualTo(LocalDate.of(2024, Month.DECEMBER, 26));
-    assertThat(saved.getLastDailyImportVersion()).isEqualTo(LocalDate.of(2024, Month.DECEMBER, 26));
+    verify(updater).updateHistoricAndDaily(LocalDate.of(2024, Month.DECEMBER, 26));
+    verify(updater, never()).updateDaily(org.mockito.ArgumentMatchers.any());
   }
 
   @Test
-  void updateStatus_noContextKeys_skipsSave() {
+  void updateStatus_noContextKeys_skipsUpdate() {
     service.updateStatus(new ExecutionContext(), "daily");
 
-    verify(statusRepository, never()).save(any());
+    verify(updater, never()).updateDaily(org.mockito.ArgumentMatchers.any());
+    verify(updater, never()).updateHistoricAndDaily(org.mockito.ArgumentMatchers.any());
   }
 
   @Test
   void updateStatus_monthlyMigrationType_dailyVersionKeyPresent_ignoresDailyKey() {
     // "newDailyVersion" is only honored when migrationType is "daily" (see
-    // updateStatus_daily_savesNewRecordWithDailyVersion); a monthly run with no historic key
-    // present must skip the save even if a stray daily key exists in the context.
+    // updateStatus_daily_delegatesToUpdaterWithDailyVersion); a monthly run with no historic key
+    // present must skip the update even if a stray daily key exists in the context.
     var context = new ExecutionContext();
     context.put("newDailyVersion", LocalDate.of(2025, Month.JANUARY, 15));
 
     service.updateStatus(context, "monthly");
 
-    verify(statusRepository, never()).save(any());
-  }
-
-  @Test
-  void updateStatus_existingStatusReused_preservesFields() {
-    var existing =
-        IncrementalMigrationStatus.builder()
-            .lastDailyImportVersion(LocalDate.of(2025, Month.JANUARY, 1))
-            .lastHistoricImportVersion(LocalDate.of(2024, Month.DECEMBER, 1))
-            .build();
-    when(statusRepository.findFirstByOrderByCreatedAtDesc()).thenReturn(Optional.of(existing));
-    when(statusRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
-    var context = new ExecutionContext();
-    context.put("newDailyVersion", LocalDate.of(2025, Month.JANUARY, 10));
-
-    service.updateStatus(context, "daily");
-
-    var captor = ArgumentCaptor.forClass(IncrementalMigrationStatus.class);
-    verify(statusRepository).save(captor.capture());
-    var saved = captor.getValue();
-    assertThat(saved.getLastHistoricImportVersion())
-        .isEqualTo(LocalDate.of(2024, Month.DECEMBER, 1));
-    assertThat(saved.getLastDailyImportVersion()).isEqualTo(LocalDate.of(2025, Month.JANUARY, 10));
+    verify(updater, never()).updateDaily(org.mockito.ArgumentMatchers.any());
+    verify(updater, never()).updateHistoricAndDaily(org.mockito.ArgumentMatchers.any());
   }
 }

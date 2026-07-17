@@ -1,11 +1,10 @@
 package de.bund.digitalservice.ris.migration.common.config;
 
 import de.bund.digitalservice.ris.migration.common.model.CountedError;
-import de.bund.digitalservice.ris.migration.common.model.MigrationStatus;
-import de.bund.digitalservice.ris.migration.common.repository.MigrationErrorRepository;
-import de.bund.digitalservice.ris.migration.common.repository.MigrationRecordRepository;
 import jakarta.annotation.Nonnull;
 import java.util.List;
+import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -17,8 +16,8 @@ import org.springframework.batch.core.step.StepExecution;
 @Slf4j
 public class PrintMigrationErrorsListener implements StepExecutionListener {
 
-  private final MigrationErrorRepository migrationErrorRepository;
-  private final MigrationRecordRepository migrationRecordRepository;
+  private final Supplier<List<CountedError>> countedErrorsSupplier;
+  private final LongSupplier failedDocumentsCountSupplier;
 
   @Override
   public ExitStatus afterStep(@Nonnull StepExecution stepExecution) {
@@ -30,7 +29,7 @@ public class PrintMigrationErrorsListener implements StepExecutionListener {
     sb.append("Description");
     sb.append("\n");
     sb.append(StringUtils.repeat("-", 120));
-    List<CountedError> countedErrors = migrationErrorRepository.countAllGroupByDescription();
+    List<CountedError> countedErrors = countedErrorsSupplier.get();
     if (!countedErrors.isEmpty()) {
       for (CountedError countedError : countedErrors) {
         sb.append("\n")
@@ -40,9 +39,7 @@ public class PrintMigrationErrorsListener implements StepExecutionListener {
       }
       sb.append("\n");
       sb.append(StringUtils.repeat("-", 120));
-      long failedDocumentsCount =
-          migrationRecordRepository.countAllByMigrationStatusNot(
-              MigrationStatus.TRANSFORMATION_SUCCEEDED);
+      long failedDocumentsCount = failedDocumentsCountSupplier.getAsLong();
       log.warn("Migration errors:{}\nFailed to migrate {} documents.", sb, failedDocumentsCount);
     }
     return null;

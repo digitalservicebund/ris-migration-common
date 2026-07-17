@@ -1,8 +1,6 @@
 package de.bund.digitalservice.ris.migration.common.orchestrator;
 
 import de.bund.digitalservice.ris.migration.common.config.MigrationJobProperties;
-import de.bund.digitalservice.ris.migration.common.domain.IncrementalMigrationStatus;
-import de.bund.digitalservice.ris.migration.common.repository.IncrementalMigrationStatusRepository;
 import jakarta.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -12,6 +10,8 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +21,6 @@ import org.springframework.batch.core.job.Job;
 import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobOperator;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.CommandLineRunner;
 
 /**
@@ -35,7 +34,7 @@ public class DailyMigrationOrchestrator implements CommandLineRunner {
 
   private final Job migrationJob;
   private final JobOperator jobOperator;
-  private final ObjectProvider<IncrementalMigrationStatusRepository> statusRepositoryProvider;
+  private final Supplier<Optional<LocalDate>> lastDailyVersionSupplier;
   private final MigrationJobProperties properties;
 
   private final Clock clock = Clock.system(ZoneId.of("Europe/Berlin"));
@@ -63,14 +62,7 @@ public class DailyMigrationOrchestrator implements CommandLineRunner {
     }
 
     LocalDate today = today();
-    IncrementalMigrationStatusRepository statusRepo = statusRepositoryProvider.getIfAvailable();
-    LocalDate lastRun =
-        statusRepo != null
-            ? statusRepo
-                .findFirstByOrderByCreatedAtDesc()
-                .map(IncrementalMigrationStatus::getLastDailyImportVersion)
-                .orElse(today.minusDays(1))
-            : today.minusDays(1);
+    LocalDate lastRun = lastDailyVersionSupplier.get().orElse(today.minusDays(1));
 
     List<LocalDate> pendingDays = lastRun.plusDays(1).datesUntil(today.plusDays(1)).toList();
 

@@ -1,6 +1,44 @@
-# ris-migration-common — Usage Manual
+# ris-migration-common
 
-## 1. Add the dependency
+## A. What it is
+
+`ris-migration-common` is a Spring Boot library that provides the shared building blocks for
+**juris data migration batch jobs**: Spring Batch readers, writers, and listeners for reading XML/JSON
+source files and CSV deletion feeds, uploading/downloading data to and from S3, tracking a daily/monthly
+import checkpoint, and orchestrating repeated daily runs.
+
+It is used by every project that migrates juris source data into a target database (e.g. `ris-adm-bzst`,
+`ris-literature`). Each project defines its own domain model, its own database schema, and its own batch
+job wiring; the library supplies the repeated infrastructure pieces so they aren't reimplemented per
+project.
+
+### Ownership boundary
+
+The library owns **no JPA entities and no repository interfaces**. Every piece of persistence — the
+migration-status checkpoint, the migration record, migration errors, and how they're queried — is owned
+entirely by the consuming project. The library's services, listeners, and writers instead take
+project-supplied functional callbacks (`Function`, `Consumer`, `Supplier`) or small interfaces
+(`MigrationStatusUpdater`, `MigrationOutputItem`, `DocumentNumberReference`) so they can operate on
+whatever entity shape a project has, without the library dictating a table schema. This keeps each
+project's database schema fully independent of the library's release version.
+
+### What it provides
+
+| Area | Classes |
+|---|---|
+| Reading source files | `FileItemReader`, `XmlDocumentItemReader`, `DeletionCsvItemReaderFactory` |
+| Writing output | `FileItemWriter<T extends MigrationOutputItem>`, `S3DeletionWriter<T>` |
+| S3 transfer (cloud profile) | `S3MigrationService`, `BucketPrefixBuilder`, `ChangeLogService` |
+| Migration checkpoint | `MigrationStatusService`, `MigrationStatusUpdater` (you implement this) |
+| Orchestration | `DailyMigrationOrchestrator` |
+| Step/chunk listeners | `PrintTimeUsedStepListener`, `PrintProcessedItemsChunkListener`, `PrintMigrationErrorsListener`, `NoDataFoundStepListener` |
+| Publishing | `PublishTasklet` |
+| Configuration | `MigrationJobProperties` (`app.*` properties) |
+| Shared model types | `MigrationStatus`, `MigrationErrorType`, `CountedError`, `JurisDocument`, `DocumentNumberReference` |
+
+## B. How to integrate
+
+### 1. Add the dependency
 
 ```kotlin
 // build.gradle.kts
@@ -20,7 +58,7 @@ dependencies {
 }
 ```
 
-## 2. Required application properties
+### 2. Configure application properties
 
 ```yaml
 app:
@@ -32,20 +70,24 @@ app:
   monthly-offset: 3         # how many months back to allow recursive monthly search
 ```
 
-## 3. What is auto-configured
+These are bound to `MigrationJobProperties` (`input.directory()`, `output.directory()`,
+`migrationType()`, `monthlyOffset()`), available to inject anywhere in your job configuration.
 
-The library registers two auto-configurations via `AutoConfiguration.imports`:
+### 3. What's auto-configured
+
+The library registers two auto-configurations:
 
 | Class | Active when | Beans registered |
 |---|---|---|
-| `MigrationAutoConfiguration` | always | `ChangeLogService`, `ImportService` |
-| `S3AutoConfiguration` | `@Profile("cloud")` | `S3MigrationService`, `BucketPrefixBuilder` (default), `s3KeyFilter` (default) |
+| `MigrationAutoConfiguration` | always | `ChangeLogService`, `ImportService`, and `MigrationStatusService` (only once you expose a `MigrationStatusUpdater` bean — see step 5) |
+| `S3AutoConfiguration` | `@Profile("cloud")` | `S3MigrationService`, plus default `BucketPrefixBuilder`/`s3KeyFilter` beans |
 
-`MigrationAutoConfiguration` also calls `@AutoConfigurationPackage(basePackages = "de.bund.digitalservice.ris.migration.common")` so JPA picks up the `IncrementalMigrationStatus` entity automatically — no `@EntityScan` needed in the consuming app.
+No `@EntityScan` or `@EnableJpaRepositories` is required for anything in this library — it has no
+entities of its own.
 
-## 4. Project-specific wiring (cloud profile)
+### 4. Wire up S3 (cloud profile only)
 
-`S3AutoConfiguration` expects three beans by qualifier — declare them in your project's `S3Config`:
+`S3AutoConfiguration` expects three qualified beans from your project:
 
 ```java
 @Configuration
@@ -64,7 +106,7 @@ public class S3Config {
 }
 ```
 
-Required properties for `S3AutoConfiguration`:
+Required properties:
 
 ```yaml
 aws:
@@ -73,14 +115,14 @@ aws:
     bucket: destination-bucket-name
 ```
 
-### Optional overrides
+Optional overrides:
 
 | Bean | Purpose | Default |
 |---|---|---|
 | `BucketPrefixBuilder` | Adds a sub-path inside S3 prefixes | `""` (no sub-path) |
 | `Predicate<String> s3KeyFilter` (name `s3KeyFilter`) | Filters which S3 keys are downloaded | accept all |
 
-Example — project needs a `"BZSt/"` sub-folder and only downloads `.xml` keys:
+Example — a project needs a `"BZSt/"` sub-folder and only downloads `.xml` keys:
 
 ```java
 @Bean
@@ -94,9 +136,150 @@ public Predicate<String> s3KeyFilter() {
 }
 ```
 
-## 5. Implement the orchestrator
+If your project runs without S3 (no `cloud` profile active), `ImportService`, `PublishTasklet`, and
+`S3DeletionWriter` all degrade to no-ops for their S3-facing side and log that they're running in local
+mode — the rest of the job still runs against whatever files already sit in the input directory.
 
-Extend `DailyMigrationOrchestrator` and annotate with `@Component`. Inject the concrete `Job` bean your project defines.
+### 5. Set up your own persistence
+
+Declare all entities and repositories in your own project. The library only needs a small
+interface implementation and a couple of functional callbacks to plug into them.
+
+#### Migration checkpoint (`IncrementalMigrationStatus`)
+
+Any shape works, as long as you can produce a `Supplier<Optional<LocalDate>>` for the orchestrator
+(step 6) and an implementation of `MigrationStatusUpdater` for `MigrationStatusService`:
+
+```java
+@Entity
+@Table(name = "incremental_migration_status")
+@Builder(toBuilder = true)
+@Getter
+@NoArgsConstructor
+@AllArgsConstructor
+public class IncrementalMigrationStatus {
+
+    @Id
+    @GeneratedValue
+    private UUID id;
+
+    @CreationTimestamp
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(nullable = false)
+    private LocalDate lastDailyImportVersion;
+
+    private LocalDate lastHistoricImportVersion;
+}
+
+public interface IncrementalMigrationStatusRepository
+        extends JpaRepository<IncrementalMigrationStatus, UUID> {
+    Optional<IncrementalMigrationStatus> findFirstByOrderByCreatedAtDesc();
+}
+```
+
+Add the accompanying Flyway migration:
+
+```sql
+CREATE TABLE incremental_migration_status (
+    id                           UUID      NOT NULL PRIMARY KEY,
+    created_at                   TIMESTAMP NOT NULL,
+    last_daily_import_version    DATE      NOT NULL,
+    last_historic_import_version DATE
+);
+```
+
+Implement `MigrationStatusUpdater` and expose it as a `@Component` so `MigrationStatusService`
+auto-activates:
+
+```java
+@Component
+@RequiredArgsConstructor
+public class ProjectMigrationStatusUpdater implements MigrationStatusUpdater {
+
+    private final IncrementalMigrationStatusRepository statusRepository;
+
+    @Override
+    public void updateDaily(LocalDate date) {
+        save(builder().lastDailyImportVersion(date));
+    }
+
+    @Override
+    public void updateHistoricAndDaily(LocalDate date) {
+        save(builder().lastHistoricImportVersion(date).lastDailyImportVersion(date));
+    }
+
+    private IncrementalMigrationStatus.IncrementalMigrationStatusBuilder builder() {
+        return statusRepository.findFirstByOrderByCreatedAtDesc()
+                .orElseGet(IncrementalMigrationStatus::new)
+                .toBuilder()
+                .id(null)
+                .createdAt(null);
+    }
+
+    private void save(IncrementalMigrationStatus.IncrementalMigrationStatusBuilder builder) {
+        statusRepository.save(builder.build());
+    }
+}
+```
+
+#### Migration record and error entities
+
+Declare the scalar fields your project needs directly on your own entities:
+
+```java
+@Entity
+public class MigrationRecord {
+    @Id @GeneratedValue private UUID id;
+
+    @Enumerated(EnumType.STRING)
+    @Basic(optional = false)
+    private MigrationStatus migrationStatus;
+
+    @OneToOne(mappedBy = "migrationRecord", cascade = CascadeType.ALL, orphanRemoval = true)
+    private MyDocument document;
+
+    @OneToMany(mappedBy = "migrationRecord", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<MigrationError> migrationErrors = new ArrayList<>();
+}
+
+@Entity
+public class MigrationError {
+    @Id @GeneratedValue private UUID id;
+
+    @Basic(optional = false)
+    @Enumerated(EnumType.STRING)
+    private MigrationErrorType type;
+
+    @Basic(optional = false)
+    private String description;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "migration_record_id")
+    private MigrationRecord migrationRecord;
+}
+```
+
+`migrationStatus` uses the library's `MigrationStatus` enum; `type` uses `MigrationErrorType`
+(`ERROR`/`WARNING`). Repositories are plain Spring Data interfaces:
+
+```java
+public interface MigrationErrorJpaRepository extends JpaRepository<MigrationError, UUID> {
+    @Query("SELECT e FROM MigrationError e GROUP BY e.description")
+    List<CountedError> countAllGroupByDescription();
+}
+
+public interface MigrationRecordJpaRepository extends JpaRepository<MigrationRecord, UUID> {
+    long countAllByMigrationStatusNot(MigrationStatus status);
+}
+```
+
+### 6. Wire the orchestrator
+
+Extend `DailyMigrationOrchestrator` and annotate with `@Component`. Inject the concrete `Job` bean
+your project defines, plus a `Supplier<Optional<LocalDate>>` that looks up the last successfully
+processed daily version from your status repository (step 5):
 
 ```java
 @Component
@@ -105,9 +288,14 @@ public class MigrationOrchestrator extends DailyMigrationOrchestrator {
     public MigrationOrchestrator(
             Job migrationJob,
             JobOperator jobOperator,
-            ObjectProvider<IncrementalMigrationStatusRepository> statusRepoProvider,
+            IncrementalMigrationStatusRepository statusRepository,
             MigrationJobProperties properties) {
-        super(migrationJob, jobOperator, statusRepoProvider, properties);
+        super(
+            migrationJob,
+            jobOperator,
+            () -> statusRepository.findFirstByOrderByCreatedAtDesc()
+                    .map(IncrementalMigrationStatus::getLastDailyImportVersion),
+            properties);
     }
 
     @Override
@@ -117,74 +305,12 @@ public class MigrationOrchestrator extends DailyMigrationOrchestrator {
 }
 ```
 
-In **daily** mode the orchestrator iterates every date from `lastSuccessfulRun + 1` to today, clearing input/output directories between runs. In **monthly** mode it runs the job once.
+In **daily** mode the orchestrator iterates every date from `lastSuccessfulRun + 1` to today, clearing
+input/output directories between runs. In **monthly** mode it runs the job once. If the supplied
+`Supplier<Optional<LocalDate>>` returns `Optional.empty()` (e.g. no status row yet), the orchestrator
+defaults `lastRun = today − 1` and processes only today.
 
-If `IncrementalMigrationStatusRepository` is not yet in the project context (no bean), the orchestrator defaults `lastRun = today − 1` and processes only today.
-
-## 6. Implement repositories
-
-Declare JPA repositories that extend both the library interface and `JpaRepository`:
-
-```java
-// Required when MigrationStatusService is in the job
-@Repository
-public interface IncrementalMigrationStatusJpaRepository
-        extends IncrementalMigrationStatusRepository,
-                JpaRepository<IncrementalMigrationStatus, UUID> {}
-
-// Required when PrintMigrationErrorsListener is in the job
-@Repository
-public interface MigrationErrorJpaRepository
-        extends MigrationErrorRepository,
-                JpaRepository<MigrationError, UUID> {
-
-    @Query("SELECT e FROM MigrationError e GROUP BY e.description")
-    List<CountedError> countAllGroupByDescription();
-}
-
-@Repository
-public interface MigrationRecordJpaRepository
-        extends MigrationRecordRepository,
-                JpaRepository<MigrationRecord, UUID> {
-
-    long countAllByMigrationStatusNot(MigrationStatus status);
-}
-```
-
-The `IncrementalMigrationStatus` entity is owned by the library — no `@Entity` declaration needed in the project.
-
-### Base entities — `AbstractMigrationRecord` / `AbstractMigrationError`
-
-`MigrationRecord` and `MigrationError` can't be fully owned by the library the way
-`IncrementalMigrationStatus` is — each project's `MigrationRecord` needs its own `@OneToOne`/
-`@OneToMany` relations to project-specific entities, and JPA can't target a `@ManyToOne` at an
-abstract mapped-superclass polymorphically. Instead, extend the two `@MappedSuperclass` base
-classes, which carry the common scalar fields:
-
-```java
-@Entity
-public class MigrationRecord extends AbstractMigrationRecord {
-    @OneToOne(mappedBy = "migrationRecord", cascade = CascadeType.ALL, orphanRemoval = true)
-    private MyDocument document;
-
-    @OneToMany(mappedBy = "migrationRecord", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<MigrationError> migrationErrors = new ArrayList<>();
-}
-
-@Entity
-public class MigrationError extends AbstractMigrationError {
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "migration_record_id")
-    private MigrationRecord migrationRecord;
-}
-```
-
-`AbstractMigrationRecord` provides `id` + `migrationStatus`. `AbstractMigrationError` provides
-`id` + `type` (`MigrationErrorType.ERROR`/`WARNING`) + `description`. No Flyway changes needed
-beyond your existing `migration_record`/`migration_error` tables — the mapped-superclass fields map
-to the same column names your hand-written entities already used.
-
-## 7. Use library components in a job
+### 7. Build your batch job
 
 ```java
 @Configuration
@@ -247,15 +373,30 @@ public class MigrationJobConfig {
 }
 ```
 
-### Listeners available
+#### Listeners available
 
 | Class | Attach to |
 |---|---|
 | `PrintTimeUsedStepListener` | any step |
 | `PrintProcessedItemsChunkListener` | any chunk-oriented step |
-| `PrintMigrationErrorsListener` | the final step; needs `MigrationErrorRepository` + `MigrationRecordRepository` |
+| `PrintMigrationErrorsListener` | the final step; needs a `Supplier<List<CountedError>>` and a `LongSupplier` for your error/record counts |
 | `NoDataFoundStepListener` | a source-reading step; sets exit status `NO_DATA_FOUND` when it (and any named companion steps) read zero items |
-| `MigrationStatusService` (call manually) | status-update tasklet after successful run |
+| `MigrationStatusService` (call manually) | status-update tasklet after a successful run |
+
+`PrintMigrationErrorsListener` takes a `Supplier<List<CountedError>>` (your error-count query) and a
+`LongSupplier` (your failed-documents count query):
+
+```java
+@Bean
+public PrintMigrationErrorsListener printMigrationErrorsListener(
+        MigrationErrorJpaRepository migrationErrorRepository,
+        MigrationRecordJpaRepository migrationRecordRepository) {
+    return new PrintMigrationErrorsListener(
+            migrationErrorRepository::countAllGroupByDescription,
+            () -> migrationRecordRepository.countAllByMigrationStatusNot(
+                    MigrationStatus.TRANSFORMATION_SUCCEEDED));
+}
+```
 
 Example — a project with two source-reading steps (e.g. XML and JSON) wants `NO_DATA_FOUND` only
 when *neither* step read anything:
@@ -271,7 +412,7 @@ public Step processJsonFilesStep(/* ... */) {
 }
 ```
 
-### Deletion steps — `DeletionCsvItemReaderFactory` + `S3DeletionWriter`
+#### Deletion steps — `DeletionCsvItemReaderFactory` + `S3DeletionWriter`
 
 Reads a CSV of document numbers to delete (any column layout — only the document-number column is
 used) and pairs directly with `S3DeletionWriter`:
@@ -324,7 +465,7 @@ public FlatFileItemReader<MyDeleteEntry> deletionReader() {
 }
 ```
 
-### Publish step — `PublishTasklet`
+#### Publish step — `PublishTasklet`
 
 Uploads the output directory to the destination bucket and sets the step's exit status to
 `MONTHLY_MIGRATION_COMPLETED` or `DAILY_MIGRATION_COMPLETED` so the job flow can branch on it (e.g.
@@ -346,7 +487,7 @@ public Step publishStep(
 }
 ```
 
-## 8. Output items
+### 8. Output items
 
 Implement `MigrationOutputItem` on your processor's output type so `FileItemWriter` can write it:
 
@@ -357,18 +498,4 @@ public record TransformedDocument(String documentNumber, String xmlContent)
     @Override public String getDocumentNumber() { return documentNumber; }
     @Override public String getXmlContent()      { return xmlContent; }
 }
-```
-
-## 9. Flyway migration for IncrementalMigrationStatus
-
-Add a migration file:
-
-```sql
--- V<N>__create_incremental_migration_status.sql
-CREATE TABLE incremental_migration_status (
-    id                           UUID      NOT NULL PRIMARY KEY,
-    created_at                   TIMESTAMP NOT NULL,
-    last_daily_import_version    DATE,
-    last_historic_import_version DATE
-);
 ```
