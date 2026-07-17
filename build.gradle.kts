@@ -31,7 +31,6 @@ dependencies {
   api("org.springframework.boot:spring-boot-autoconfigure")
   api("org.springframework.boot:spring-boot-starter-batch")
   api("org.springframework.boot:spring-boot-starter-batch-jdbc")
-  api("org.springframework.boot:spring-boot-starter-data-jpa")
   api(platform("software.amazon.awssdk:bom:$awsVersion"))
   api("software.amazon.awssdk:s3")
   api("software.amazon.awssdk:s3-transfer-manager")
@@ -41,11 +40,9 @@ dependencies {
   annotationProcessor("org.projectlombok:lombok")
   testImplementation("org.springframework.boot:spring-boot-starter-test")
   testImplementation("org.springframework.boot:spring-boot-starter-batch-test")
-  testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
   testCompileOnly("org.projectlombok:lombok")
   testAnnotationProcessor("org.projectlombok:lombok")
   testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-  testRuntimeOnly("com.h2database:h2")
 }
 
 tasks.withType<Test> {

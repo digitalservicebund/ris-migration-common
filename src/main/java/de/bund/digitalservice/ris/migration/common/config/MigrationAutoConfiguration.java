@@ -7,14 +7,12 @@ import de.bund.digitalservice.ris.migration.common.service.MigrationStatusUpdate
 import de.bund.digitalservice.ris.migration.common.service.S3MigrationService;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.boot.autoconfigure.AutoConfigurationPackage;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 
 @AutoConfiguration
-@AutoConfigurationPackage(basePackages = "de.bund.digitalservice.ris.migration.common")
 @EnableConfigurationProperties(MigrationJobProperties.class)
 public class MigrationAutoConfiguration {
 
