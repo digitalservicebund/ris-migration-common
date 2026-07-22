@@ -12,6 +12,8 @@ It is used by every project that migrates juris source data into a target databa
 job wiring; the library supplies the repeated infrastructure pieces so they aren't reimplemented per
 project.
 
+The first integration is in `ris-adm-bzst`, please also refer to there.
+
 ### Ownership boundary
 
 The library owns **no JPA entities and no repository interfaces**. Every piece of persistence — the
