@@ -29,6 +29,16 @@ class ChangeLogServiceTest {
   }
 
   @Test
+  void buildChangeLog_filenameInBothChangedAndDeleted_onlyIncludedInDeleted() {
+    service.addChanged("doc1.xml");
+    service.addDeleted("doc1.xml");
+
+    String result = service.buildChangeLog();
+
+    assertThat(result).contains("\"changed\":[]").contains("\"deleted\":[\"doc1.xml\"]");
+  }
+
+  @Test
   void buildChangeLog_clearsListsAfterBuild() {
     service.addChanged("doc1.xml");
     service.buildChangeLog();
