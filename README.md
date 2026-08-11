@@ -4,15 +4,19 @@
 
 `ris-migration-common` is a Spring Boot library that provides the shared building blocks for
 **juris data migration batch jobs**: Spring Batch readers, writers, and listeners for reading XML/JSON
-source files and CSV deletion feeds, uploading/downloading data to and from S3, tracking a daily/monthly
-import checkpoint, and orchestrating repeated daily runs.
+source files and CSV deletion feeds, uploading/downloading data to and from S3, and tracking a
+daily/monthly import checkpoint.
+
+It is a pure component library: it has no opinion on how or when your job runs. Each project owns its
+own `CommandLineRunner`/scheduler and decides how to dispatch daily vs. monthly vs. any other run mode
+(see step 6).
 
 It is used by every project that migrates juris source data into a target database (e.g. `ris-adm-bzst`,
 `ris-literature`). Each project defines its own domain model, its own database schema, and its own batch
 job wiring; the library supplies the repeated infrastructure pieces so they aren't reimplemented per
 project.
 
-The first integration is in `ris-adm-bzst`, please also refer to there.
+The first integration is in `ris-adm-bzst`; `ris-literature` is the second, please also refer to those.
 
 ### Ownership boundary
 
@@ -32,7 +36,6 @@ project's database schema fully independent of the library's release version.
 | Writing output | `FileItemWriter<T extends MigrationOutputItem>`, `S3DeletionWriter<T>` |
 | S3 transfer (cloud profile) | `S3MigrationService`, `BucketPrefixBuilder`, `ChangeLogService` |
 | Migration checkpoint | `MigrationStatusService`, `MigrationStatusUpdater` (you implement this) |
-| Orchestration | `DailyMigrationOrchestrator` |
 | Step/chunk listeners | `PrintTimeUsedStepListener`, `PrintProcessedItemsChunkListener`, `PrintMigrationErrorsListener`, `NoDataFoundStepListener` |
 | Publishing | `PublishTasklet` |
 | Configuration | `MigrationJobProperties` (`app.*` properties) |
@@ -68,12 +71,15 @@ app:
     directory: /data/input
   output:
     directory: /data/output
-  migration-type: daily     # "daily" or "monthly"
+  migration-type: daily     # "daily" or "monthly"; not read by the library itself — project's
+                             # own runner reads this to decide how to dispatch (see step 6)
   monthly-offset: 3         # how many months back to allow recursive monthly search
 ```
 
 These are bound to `MigrationJobProperties` (`input.directory()`, `output.directory()`,
-`migrationType()`, `monthlyOffset()`), available to inject anywhere in your job configuration.
+`migrationType()`, `monthlyOffset()`), available to inject anywhere in your job configuration. If your
+project needs extra config the library has no use for (e.g. a source-feed-type marker), declare your
+own small `@ConfigurationProperties` class for it rather than extending this one.
 
 ### 3. What's auto-configured
 
@@ -149,7 +155,7 @@ interface implementation and a couple of functional callbacks to plug into them.
 
 #### Migration checkpoint (`IncrementalMigrationStatus`)
 
-Any shape works, as long as you can produce a `Supplier<Optional<LocalDate>>` for the orchestrator
+Any shape works, as long as you can produce a `Supplier<Optional<LocalDate>>` for your own orchestrator
 (step 6) and an implementation of `MigrationStatusUpdater` for `MigrationStatusService`:
 
 ```java
@@ -277,40 +283,51 @@ public interface MigrationRecordJpaRepository extends JpaRepository<MigrationRec
 }
 ```
 
-### 6. Wire the orchestrator
+### 6. Write your own orchestrator
 
-Extend `DailyMigrationOrchestrator` and annotate with `@Component`. Inject the concrete `Job` bean
-your project defines, plus a `Supplier<Optional<LocalDate>>` that looks up the last successfully
-processed daily version from your status repository (step 5):
+The library has no `CommandLineRunner`/orchestrator of its own — how and when your job runs (daily,
+monthly, or any other mode) is entirely project-owned, since different projects trigger and shape their
+run modes differently. Write a plain `@Component implements CommandLineRunner` in your project that
+reads `MigrationJobProperties.migrationType()` and dispatches accordingly, using the `Job` bean your
+project defines and a `Supplier<Optional<LocalDate>>` that looks up the last successfully processed
+daily version from your status repository (step 5). A typical daily/monthly shape:
 
 ```java
 @Component
-public class MigrationOrchestrator extends DailyMigrationOrchestrator {
+@RequiredArgsConstructor
+public class MigrationOrchestrator implements CommandLineRunner {
 
-    public MigrationOrchestrator(
-            Job migrationJob,
-            JobOperator jobOperator,
-            IncrementalMigrationStatusRepository statusRepository,
-            MigrationJobProperties properties) {
-        super(
-            migrationJob,
-            jobOperator,
-            () -> statusRepository.findFirstByOrderByCreatedAtDesc()
-                    .map(IncrementalMigrationStatus::getLastDailyImportVersion),
-            properties);
-    }
+    private final Job migrationJob;
+    private final JobOperator jobOperator;
+    private final IncrementalMigrationStatusRepository statusRepository;
+    private final MigrationJobProperties properties;
 
     @Override
-    protected void preRunSetup(LocalDate date) {
-        // optional: clear caches, set thread-locals, etc.
+    public void run(String... args) throws Exception {
+        if (!"daily".equalsIgnoreCase(properties.migrationType())) {
+            runOnce();
+            return;
+        }
+        LocalDate today = LocalDate.now();
+        LocalDate lastRun = statusRepository.findFirstByOrderByCreatedAtDesc()
+                .map(IncrementalMigrationStatus::getLastDailyImportVersion)
+                .orElse(today.minusDays(1));
+
+        for (LocalDate date : lastRun.plusDays(1).datesUntil(today.plusDays(1)).toList()) {
+            clearDirectory(properties.inputDirectory());
+            clearDirectory(properties.outputDirectory());
+            runFor(date);
+        }
     }
+
+    // runOnce()/runFor(date)/clearDirectory(...): start migrationJob via jobOperator, check the
+    // resulting ExitStatus, and throw IllegalStateException on failure.
 }
 ```
 
-In **daily** mode the orchestrator iterates every date from `lastSuccessfulRun + 1` to today, clearing
-input/output directories between runs. In **monthly** mode it runs the job once. If the supplied
-`Supplier<Optional<LocalDate>>` returns `Optional.empty()` (e.g. no status row yet), the orchestrator
-defaults `lastRun = today − 1` and processes only today.
+If your project has an entirely separate batch job that doesn't fit the daily/monthly migration flow
+(e.g. a synchronization job triggered by its own value), handle that case in the same `run(String...
+args)` alongside daily/monthly — there's no base class to delegate to.
 
 ### 7. Build your batch job
 
