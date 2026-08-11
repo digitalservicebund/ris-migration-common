@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import de.bund.digitalservice.ris.migration.common.config.MigrationType;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.scope.context.ChunkContext;
@@ -15,13 +16,13 @@ class PublishTaskletTest {
   @Test
   void execute_dailyMigration_uploadsAndSetsDailyExitStatus() throws Exception {
     var s3MigrationService = mock(S3MigrationService.class);
-    var tasklet = new PublishTasklet(s3MigrationService, "/output", "daily");
+    var tasklet = new PublishTasklet(s3MigrationService, "/output", MigrationType.DAILY);
     var contribution = mock(StepContribution.class);
     var chunkContext = mock(ChunkContext.class);
 
     RepeatStatus result = tasklet.execute(contribution, chunkContext);
 
-    verify(s3MigrationService).uploadFolder("/output", "daily");
+    verify(s3MigrationService).uploadFolder("/output", MigrationType.DAILY);
     verify(contribution).setExitStatus(new ExitStatus(PublishTasklet.DAILY_MIGRATION_COMPLETED));
     assertThat(result).isEqualTo(RepeatStatus.FINISHED);
   }
@@ -29,19 +30,19 @@ class PublishTaskletTest {
   @Test
   void execute_monthlyMigration_uploadsAndSetsMonthlyExitStatus() throws Exception {
     var s3MigrationService = mock(S3MigrationService.class);
-    var tasklet = new PublishTasklet(s3MigrationService, "/output", "monthly");
+    var tasklet = new PublishTasklet(s3MigrationService, "/output", MigrationType.MONTHLY);
     var contribution = mock(StepContribution.class);
     var chunkContext = mock(ChunkContext.class);
 
     tasklet.execute(contribution, chunkContext);
 
-    verify(s3MigrationService).uploadFolder("/output", "monthly");
+    verify(s3MigrationService).uploadFolder("/output", MigrationType.MONTHLY);
     verify(contribution).setExitStatus(new ExitStatus(PublishTasklet.MONTHLY_MIGRATION_COMPLETED));
   }
 
   @Test
   void execute_nullS3Service_skipsUploadButStillSetsExitStatus() throws Exception {
-    var tasklet = new PublishTasklet(null, "/output", "daily");
+    var tasklet = new PublishTasklet(null, "/output", MigrationType.DAILY);
     var contribution = mock(StepContribution.class);
     var chunkContext = mock(ChunkContext.class);
 

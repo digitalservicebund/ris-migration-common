@@ -4,7 +4,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "app")
 public record MigrationJobProperties(
-    Input input, Output output, String migrationType, int monthlyOffset) {
+    Input input, Output output, MigrationType migrationType, int monthlyOffset) {
 
   public record Input(String directory) {}
 

@@ -1,5 +1,6 @@
 package de.bund.digitalservice.ris.migration.common.service;
 
+import de.bund.digitalservice.ris.migration.common.config.MigrationType;
 import java.io.IOException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +26,7 @@ public class PublishTasklet implements Tasklet {
 
   private final S3MigrationService s3MigrationService;
   private final String outputDirectory;
-  private final String migrationType;
+  private final MigrationType migrationType;
 
   @Override
   public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext)
@@ -41,7 +42,7 @@ public class PublishTasklet implements Tasklet {
   }
 
   private String exitCode() {
-    return "monthly".equalsIgnoreCase(migrationType)
+    return migrationType == MigrationType.MONTHLY
         ? MONTHLY_MIGRATION_COMPLETED
         : DAILY_MIGRATION_COMPLETED;
   }

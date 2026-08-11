@@ -3,6 +3,7 @@ package de.bund.digitalservice.ris.migration.common.service;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import de.bund.digitalservice.ris.migration.common.config.MigrationType;
 import java.time.LocalDate;
 import java.time.Month;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,7 +30,7 @@ class MigrationStatusServiceTest {
     var context = new ExecutionContext();
     context.put("newDailyVersion", LocalDate.of(2025, Month.JANUARY, 15));
 
-    service.updateStatus(context, "daily");
+    service.updateStatus(context, MigrationType.DAILY);
 
     verify(updater).updateDaily(LocalDate.of(2025, Month.JANUARY, 15));
     verify(updater, never()).updateHistoricAndDaily(org.mockito.ArgumentMatchers.any());
@@ -40,7 +41,7 @@ class MigrationStatusServiceTest {
     var context = new ExecutionContext();
     context.put("newHistoricVersion", LocalDate.of(2024, Month.DECEMBER, 26));
 
-    service.updateStatus(context, "monthly");
+    service.updateStatus(context, MigrationType.MONTHLY);
 
     verify(updater).updateHistoricAndDaily(LocalDate.of(2024, Month.DECEMBER, 26));
     verify(updater, never()).updateDaily(org.mockito.ArgumentMatchers.any());
@@ -48,7 +49,7 @@ class MigrationStatusServiceTest {
 
   @Test
   void updateStatus_noContextKeys_skipsUpdate() {
-    service.updateStatus(new ExecutionContext(), "daily");
+    service.updateStatus(new ExecutionContext(), MigrationType.DAILY);
 
     verify(updater, never()).updateDaily(org.mockito.ArgumentMatchers.any());
     verify(updater, never()).updateHistoricAndDaily(org.mockito.ArgumentMatchers.any());
@@ -62,7 +63,7 @@ class MigrationStatusServiceTest {
     var context = new ExecutionContext();
     context.put("newDailyVersion", LocalDate.of(2025, Month.JANUARY, 15));
 
-    service.updateStatus(context, "monthly");
+    service.updateStatus(context, MigrationType.MONTHLY);
 
     verify(updater, never()).updateDaily(org.mockito.ArgumentMatchers.any());
     verify(updater, never()).updateHistoricAndDaily(org.mockito.ArgumentMatchers.any());

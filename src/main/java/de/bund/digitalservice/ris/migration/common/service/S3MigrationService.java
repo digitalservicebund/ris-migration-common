@@ -1,5 +1,6 @@
 package de.bund.digitalservice.ris.migration.common.service;
 
+import de.bund.digitalservice.ris.migration.common.config.MigrationType;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -144,7 +145,7 @@ public class S3MigrationService {
         GetObjectRequest.builder().bucket(sourceBucket).key(s3Key).build(), destinationPath);
   }
 
-  public void uploadFolder(String localPath, String migrationType) throws IOException {
+  public void uploadFolder(String localPath, MigrationType migrationType) throws IOException {
     log.info("Publishing from {} to s3://{}", localPath, destBucket);
     Path rootPath = Paths.get(localPath);
 
@@ -160,7 +161,7 @@ public class S3MigrationService {
           destinationTransferManager.uploadDirectory(uploadDirectoryRequest);
       long numberOfUploadedFiles;
       try (Stream<Path> stream = Files.walk(rootPath)) {
-        if (migrationType.equals("monthly")) {
+        if (migrationType == MigrationType.MONTHLY) {
           numberOfUploadedFiles = stream.parallel().filter(Files::isRegularFile).count();
           log.info(
               "Computed number of {} files. No changelog is computed for monthly migration.",
@@ -198,9 +199,9 @@ public class S3MigrationService {
     }
   }
 
-  public void writeChangeLog(String migrationType) {
+  public void writeChangeLog(MigrationType migrationType) {
     String changeLog =
-        migrationType.equals("monthly")
+        migrationType == MigrationType.MONTHLY
             ? changeLogService.buildChangeLogAll()
             : changeLogService.buildChangeLog();
     saveChangelog(createChangeLogKey(), changeLog);

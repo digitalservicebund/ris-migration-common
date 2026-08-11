@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import de.bund.digitalservice.ris.migration.common.config.MigrationType;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -100,7 +101,7 @@ class S3MigrationServiceTest {
   void writeChangeLog_dailyType_callsBuildChangeLog() {
     when(changeLogService.buildChangeLog()).thenReturn("{\"changed\":[],\"deleted\":[]}");
 
-    service.writeChangeLog("daily");
+    service.writeChangeLog(MigrationType.DAILY);
 
     verify(changeLogService).buildChangeLog();
     verify(destClient).putObject(any(PutObjectRequest.class), any(RequestBody.class));
@@ -110,7 +111,7 @@ class S3MigrationServiceTest {
   void writeChangeLog_monthlyType_callsBuildChangeLogAll() {
     when(changeLogService.buildChangeLogAll()).thenReturn("{\"change_all\":true}");
 
-    service.writeChangeLog("monthly");
+    service.writeChangeLog(MigrationType.MONTHLY);
 
     verify(changeLogService).buildChangeLogAll();
     verify(destClient).putObject(any(PutObjectRequest.class), any(RequestBody.class));
@@ -125,7 +126,7 @@ class S3MigrationServiceTest {
 
   @Test
   void downloadFolder_emptyResponse_downloadsNothing(@TempDir Path localDest) {
-    var iterable = org.mockito.Mockito.mock(ListObjectsV2Iterable.class);
+    var iterable = mock(ListObjectsV2Iterable.class);
     when(sourceClient.listObjectsV2Paginator(any(ListObjectsV2Request.class))).thenReturn(iterable);
     when(iterable.iterator()).thenReturn(List.<ListObjectsV2Response>of().iterator());
 
@@ -138,7 +139,7 @@ class S3MigrationServiceTest {
   void downloadFolder_withObjects_downloadsMatchingFiles(@TempDir Path localDest) {
     var s3Object = S3Object.builder().key("daily/prefix/file.xml").build();
     var page = ListObjectsV2Response.builder().contents(List.of(s3Object)).build();
-    var iterable = org.mockito.Mockito.mock(ListObjectsV2Iterable.class);
+    var iterable = mock(ListObjectsV2Iterable.class);
     when(sourceClient.listObjectsV2Paginator(any(ListObjectsV2Request.class))).thenReturn(iterable);
     when(iterable.iterator()).thenReturn(List.of(page).iterator());
     when(sourceClient.getObject(any(GetObjectRequest.class), any(Path.class))).thenReturn(null);
@@ -152,7 +153,7 @@ class S3MigrationServiceTest {
   void downloadFolder_keyFilterExcludesEmpty_skipsEmptyKey(@TempDir Path localDest) {
     var s3Object = S3Object.builder().key("").build();
     var page = ListObjectsV2Response.builder().contents(List.of(s3Object)).build();
-    var iterable = org.mockito.Mockito.mock(ListObjectsV2Iterable.class);
+    var iterable = mock(ListObjectsV2Iterable.class);
     when(sourceClient.listObjectsV2Paginator(any(ListObjectsV2Request.class))).thenReturn(iterable);
     when(iterable.iterator()).thenReturn(List.of(page).iterator());
 
@@ -165,7 +166,7 @@ class S3MigrationServiceTest {
   void uploadFolder_directoryNotExists_skipsUpload(@TempDir Path base) throws IOException {
     Path nonExistent = base.resolve("nonexistent");
 
-    service.uploadFolder(nonExistent.toString(), "daily");
+    service.uploadFolder(nonExistent.toString(), MigrationType.DAILY);
 
     verify(transferManager, never())
         .uploadDirectory(
@@ -175,8 +176,8 @@ class S3MigrationServiceTest {
   @Test
   void uploadFolder_monthlyMode_uploadsWithoutChangelog(@TempDir Path localDir) throws IOException {
     Files.writeString(localDir.resolve("doc.xml"), "<root/>");
-    var completed = org.mockito.Mockito.mock(CompletedDirectoryUpload.class);
-    var upload = org.mockito.Mockito.mock(DirectoryUpload.class);
+    var completed = mock(CompletedDirectoryUpload.class);
+    var upload = mock(DirectoryUpload.class);
     when(transferManager.uploadDirectory(
             any(software.amazon.awssdk.transfer.s3.model.UploadDirectoryRequest.class)))
         .thenReturn(upload);
@@ -184,7 +185,7 @@ class S3MigrationServiceTest {
         .thenReturn(java.util.concurrent.CompletableFuture.completedFuture(completed));
     when(completed.failedTransfers()).thenReturn(List.of());
 
-    service.uploadFolder(localDir.toString(), "monthly");
+    service.uploadFolder(localDir.toString(), MigrationType.MONTHLY);
 
     verify(changeLogService, never()).addChanged(any());
   }
@@ -192,8 +193,8 @@ class S3MigrationServiceTest {
   @Test
   void uploadFolder_dailyMode_addsChangedFiles(@TempDir Path localDir) throws IOException {
     Files.writeString(localDir.resolve("doc.xml"), "<root/>");
-    var completed = org.mockito.Mockito.mock(CompletedDirectoryUpload.class);
-    var upload = org.mockito.Mockito.mock(DirectoryUpload.class);
+    var completed = mock(CompletedDirectoryUpload.class);
+    var upload = mock(DirectoryUpload.class);
     when(transferManager.uploadDirectory(
             any(software.amazon.awssdk.transfer.s3.model.UploadDirectoryRequest.class)))
         .thenReturn(upload);
@@ -201,7 +202,7 @@ class S3MigrationServiceTest {
         .thenReturn(java.util.concurrent.CompletableFuture.completedFuture(completed));
     when(completed.failedTransfers()).thenReturn(List.of());
 
-    service.uploadFolder(localDir.toString(), "daily");
+    service.uploadFolder(localDir.toString(), MigrationType.DAILY);
 
     verify(changeLogService).addChanged(any());
   }

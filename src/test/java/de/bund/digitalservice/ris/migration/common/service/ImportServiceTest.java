@@ -5,6 +5,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import de.bund.digitalservice.ris.migration.common.config.MigrationType;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.Month;
@@ -35,7 +36,10 @@ class ImportServiceTest {
     when(s3ServiceProvider.getIfAvailable()).thenReturn(null);
 
     service.importData(
-        new ExecutionContext(), "daily", tempDir.toString(), LocalDate.of(2025, Month.JANUARY, 15));
+        new ExecutionContext(),
+        MigrationType.DAILY,
+        tempDir.toString(),
+        LocalDate.of(2025, Month.JANUARY, 15));
 
     verify(s3MigrationService, never())
         .downloadFolder(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
@@ -48,7 +52,8 @@ class ImportServiceTest {
         .thenReturn("daily/2025/01/14/");
 
     var context = new ExecutionContext();
-    service.importData(context, "daily", "/tmp/input", LocalDate.of(2025, Month.JANUARY, 15));
+    service.importData(
+        context, MigrationType.DAILY, "/tmp/input", LocalDate.of(2025, Month.JANUARY, 15));
 
     verify(s3MigrationService).assertFolderExists("daily/2025/01/14/");
     verify(s3MigrationService).downloadFolder("daily/2025/01/14/", "/tmp/input");
@@ -64,7 +69,8 @@ class ImportServiceTest {
         .thenReturn(monthlySource);
 
     var context = new ExecutionContext();
-    service.importData(context, "monthly", "/tmp/input", LocalDate.of(2025, Month.JANUARY, 15));
+    service.importData(
+        context, MigrationType.MONTHLY, "/tmp/input", LocalDate.of(2025, Month.JANUARY, 15));
 
     verify(s3MigrationService).downloadFolder("monthly/2025/01/", "/tmp/input");
   }
@@ -77,7 +83,7 @@ class ImportServiceTest {
             () ->
                 service.importData(
                     new ExecutionContext(),
-                    "daily",
+                    MigrationType.DAILY,
                     "/nonexistent/path",
                     LocalDate.of(2025, Month.JANUARY, 15)))
         .doesNotThrowAnyException();

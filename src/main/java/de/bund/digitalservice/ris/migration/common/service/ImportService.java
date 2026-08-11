@@ -1,5 +1,6 @@
 package de.bund.digitalservice.ris.migration.common.service;
 
+import de.bund.digitalservice.ris.migration.common.config.MigrationType;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -28,7 +29,7 @@ public class ImportService {
 
   public void importData(
       ExecutionContext context,
-      String migrationType,
+      MigrationType migrationType,
       String inputDirectory,
       LocalDate processingDate)
       throws FileNotFoundException {
@@ -44,7 +45,7 @@ public class ImportService {
       return;
     }
 
-    if ("daily".equalsIgnoreCase(migrationType)) {
+    if (migrationType == MigrationType.DAILY) {
       log.info("Starting daily import for date: {}", processingDate);
       String sourcePath = s3Service.resolveDailySourcePath(processingDate);
       s3Service.assertFolderExists(sourcePath);
