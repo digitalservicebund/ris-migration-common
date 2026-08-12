@@ -70,6 +70,18 @@ class FileItemWriterTest {
   }
 
   @Test
+  void writeToOutput_staticMethod_outputDirectoryDoesNotExistYet_createsItAndWritesFile(
+      @TempDir Path base) throws Exception {
+    Path outDir = base.resolve("not-yet-created");
+
+    FileItemWriter.writeToOutput(new TestItem("STATIC", "<data/>"), outDir.toString(), ".xml");
+
+    Path file = outDir.resolve("STATIC.xml");
+    assertThat(Files.exists(file)).isTrue();
+    assertThat(Files.readString(file)).isEqualTo("<data/>");
+  }
+
+  @Test
   void write_emptyChunk_writesNothing(@TempDir Path outDir) throws Exception {
     var writer = new FileItemWriter<TestItem>(outDir.toString(), ".xml");
     writer.open(new ExecutionContext());

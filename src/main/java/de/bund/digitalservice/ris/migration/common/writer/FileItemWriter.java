@@ -53,6 +53,7 @@ public class FileItemWriter<T extends MigrationOutputItem> implements ItemStream
       if (!targetPath.startsWith(outputDir)) {
         throw new IllegalArgumentException("Invalid document number: " + item.getDocumentNumber());
       }
+      Files.createDirectories(outputDir);
       Files.writeString(targetPath, item.getXmlContent(), StandardCharsets.UTF_8);
     } catch (IOException e) {
       throw new UncheckedIOException(e);
