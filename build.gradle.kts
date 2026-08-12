@@ -75,6 +75,14 @@ publishing {
   publications {
     create<MavenPublication>("mavenJava") {
       from(components["java"])
+      pom {
+        licenses {
+          license {
+            name = "GNU General Public License, Version 3"
+            url = "https://www.gnu.org/licenses/gpl-3.0.html"
+          }
+        }
+      }
     }
   }
   repositories {
