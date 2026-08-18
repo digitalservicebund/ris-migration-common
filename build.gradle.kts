@@ -1,3 +1,5 @@
+import com.diffplug.spotless.LineEnding
+
 plugins {
   `java-library`
   id("io.spring.dependency-management") version "1.1.7"
@@ -53,6 +55,9 @@ spotless {
   java {
     googleJavaFormat()
     target("src/*/java/**/*.java")
+  }
+  if (System.getProperty("os.name", "undefined").contains("Windows")) {
+    lineEndings = LineEnding.UNIX
   }
 }
 
