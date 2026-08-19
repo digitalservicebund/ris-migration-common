@@ -5,3 +5,6 @@ build/
 out/
 *.class
 !gradle/wrapper/gradle-wrapper.jar
+
+### Local dev overrides ###
+.devcontainer

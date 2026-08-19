@@ -1,7 +1,9 @@
+import com.diffplug.spotless.LineEnding
+
 plugins {
   `java-library`
   id("io.spring.dependency-management") version "1.1.7"
-  id("com.diffplug.spotless") version "8.8.0"
+  id("com.diffplug.spotless") version "8.9.0"
   id("jacoco")
   `maven-publish`
 }
@@ -11,7 +13,7 @@ repositories {
 }
 
 group = "de.bund.digitalservice.ris"
-version = System.getenv("RELEASE_VERSION") ?: "0.7.0"
+version = System.getenv("RELEASE_VERSION") ?: "0.7.3"
 
 java {
   toolchain {
@@ -19,7 +21,7 @@ java {
   }
 }
 
-val awsVersion = "2.48.3"
+val awsVersion = "2.51.4"
 
 dependencyManagement {
   imports {
@@ -53,6 +55,9 @@ spotless {
   java {
     googleJavaFormat()
     target("src/*/java/**/*.java")
+  }
+  if (System.getProperty("os.name", "undefined").contains("Windows")) {
+    lineEndings = LineEnding.UNIX
   }
 }
 
