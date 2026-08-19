@@ -21,7 +21,7 @@ java {
   }
 }
 
-val awsVersion = "2.51.4"
+val awsVersion = "2.53.1"
 
 dependencyManagement {
   imports {
