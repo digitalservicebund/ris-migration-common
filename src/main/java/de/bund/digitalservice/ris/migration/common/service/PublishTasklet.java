@@ -2,6 +2,7 @@ package de.bund.digitalservice.ris.migration.common.service;
 
 import de.bund.digitalservice.ris.migration.common.config.MigrationType;
 import java.io.IOException;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.ExitStatus;
@@ -14,7 +15,9 @@ import org.springframework.batch.infrastructure.repeat.RepeatStatus;
  * Uploads the output directory to the destination bucket and marks the step's exit status {@code
  * MONTHLY_MIGRATION_COMPLETED} or {@code DAILY_MIGRATION_COMPLETED} depending on {@code
  * migrationType}, so the surrounding job flow can branch on it (e.g. skip deletion handling for
- * monthly runs). No-op when {@code s3MigrationService} is {@code null} (local mode, no cloud
+ * monthly runs). For monthly runs, also reconciles the destination bucket against the set of
+ * uploaded keys, so documents no longer present upstream get removed once the new snapshot is
+ * confirmed uploaded. No-op when {@code s3MigrationService} is {@code null} (local mode, no cloud
  * profile active).
  */
 @Slf4j
@@ -35,7 +38,10 @@ public class PublishTasklet implements Tasklet {
       log.info("Local mode: skipping S3 publish");
     } else {
       log.info("Starting S3 publish from: {}", outputDirectory);
-      s3MigrationService.uploadFolder(outputDirectory, migrationType);
+      Set<String> uploadedKeys = s3MigrationService.uploadFolder(outputDirectory, migrationType);
+      if (migrationType == MigrationType.MONTHLY) {
+        s3MigrationService.reconcileDestination(uploadedKeys);
+      }
     }
     contribution.setExitStatus(new ExitStatus(exitCode()));
     return RepeatStatus.FINISHED;

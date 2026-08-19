@@ -50,7 +50,9 @@ public class S3AutoConfiguration {
       @Qualifier("s3KeyFilter") Predicate<String> s3KeyFilter,
       @Value("${aws.bucket}") String sourceBucket,
       @Value("${aws.destination.bucket}") String destBucket,
-      @Value("${app.monthly-offset}") int monthlyOffset) {
+      @Value("${app.monthly-offset}") int monthlyOffset,
+      @Value("${app.monthly-cleanup.enabled:false}") boolean monthlyCleanupEnabled,
+      @Value("${app.monthly-cleanup.dry-run:false}") boolean monthlyCleanupDryRun) {
     LocalDate monthlyStart =
         LocalDate.now(ZoneOffset.UTC).minusMonths(monthlyOffset).withDayOfMonth(1);
     return new S3MigrationService(
@@ -62,6 +64,8 @@ public class S3AutoConfiguration {
         changeLogService,
         bucketPrefixBuilder,
         s3KeyFilter,
-        monthlyStart);
+        monthlyStart,
+        monthlyCleanupEnabled,
+        monthlyCleanupDryRun);
   }
 }

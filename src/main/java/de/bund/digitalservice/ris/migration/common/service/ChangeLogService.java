@@ -4,17 +4,25 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import org.springframework.stereotype.Service;
 
 @Service
 public class ChangeLogService {
 
-  private final List<String> changed = new CopyOnWriteArrayList<>();
-  private final List<String> deleted = new CopyOnWriteArrayList<>();
+  /**
+   * Concurrent queues rather than {@code CopyOnWriteArrayList}: entries are appended once per
+   * migrated or deleted file — hundreds of thousands of them during a monthly run — and read
+   * exactly once at the end, so copy-on-write would make accumulation quadratic.
+   */
+  private final Queue<String> changed = new ConcurrentLinkedQueue<>();
+
+  private final Queue<String> deleted = new ConcurrentLinkedQueue<>();
   private final JsonMapper jsonMapper = new JsonMapper();
 
   public void addChanged(String filename) {
@@ -38,15 +46,16 @@ public class ChangeLogService {
   public synchronized String buildChangeLog() {
     ObjectNode root = jsonMapper.createObjectNode();
 
-    Set<String> deletedSet = new HashSet<>(deleted);
+    List<String> deletedEntries = drain(deleted);
+    Set<String> deletedSet = new HashSet<>(deletedEntries);
 
     ArrayNode changedArray = root.putArray("changed");
-    changed.stream().filter(filename -> !deletedSet.contains(filename)).forEach(changedArray::add);
-    changed.clear();
+    drain(changed).stream()
+        .filter(filename -> !deletedSet.contains(filename))
+        .forEach(changedArray::add);
 
     ArrayNode deletedArray = root.putArray("deleted");
-    deleted.forEach(deletedArray::add);
-    deleted.clear();
+    deletedEntries.forEach(deletedArray::add);
 
     try {
       return jsonMapper.writeValueAsString(root);
@@ -55,9 +64,20 @@ public class ChangeLogService {
     }
   }
 
-  public String buildChangeLogAll() {
+  public synchronized String buildChangeLogAll() {
     changed.clear();
     deleted.clear();
     return "{\"change_all\":true}";
+  }
+
+  /**
+   * Removes and returns everything currently queued, so no entry is dropped between read and reset.
+   */
+  private static List<String> drain(Queue<String> queue) {
+    List<String> entries = new ArrayList<>();
+    for (String entry = queue.poll(); entry != null; entry = queue.poll()) {
+      entries.add(entry);
+    }
+    return entries;
   }
 }

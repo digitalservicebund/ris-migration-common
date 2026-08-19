@@ -148,6 +148,32 @@ If your project runs without S3 (no `cloud` profile active), `ImportService`, `P
 `S3DeletionWriter` all degrade to no-ops for their S3-facing side and log that they're running in local
 mode — the rest of the job still runs against whatever files already sit in the input directory.
 
+#### Monthly bucket reconciliation
+
+Monthly uploads are a full re-publish of the source population, but `uploadFolder` only ever PUTs —
+it never removes objects the destination bucket already has. Left alone, documents that were deleted
+upstream between monthly runs pile up in the destination bucket forever.
+
+`PublishTasklet` closes that gap for `MONTHLY` runs by calling
+`S3MigrationService.reconcileDestination(uploadedKeys)` right after the upload completes
+successfully: it lists the destination bucket (skipping the `changelogs/` prefix), diffs it against
+the keys just uploaded, and deletes whatever's left over. Because deletion only ever runs after the
+new snapshot is confirmed fully uploaded (upload failures abort before reconciliation runs), and S3
+overwrites same-key objects atomically, no document that's still part of the current snapshot is ever
+unavailable — the only objects removed are ones that no longer exist upstream at all. This assumes
+one job runs at a time per environment; running a daily and monthly job concurrently against the same
+destination bucket is not supported and could race with reconciliation's bucket listing.
+
+Opt in explicitly — this is disabled by default:
+
+```yaml
+app:
+  monthly-cleanup:
+    enabled: true   # default: false
+    dry-run: true   # default: false — logs what would be deleted instead of deleting; use to
+                     # validate against a real bucket before enabling actual deletes
+```
+
 ### 5. Set up your own persistence
 
 Declare all entities and repositories in your own project. The library only needs a small
@@ -488,8 +514,10 @@ public FlatFileItemReader<MyDeleteEntry> deletionReader() {
 
 Uploads the output directory to the destination bucket and sets the step's exit status to
 `MONTHLY_MIGRATION_COMPLETED` or `DAILY_MIGRATION_COMPLETED` so the job flow can branch on it (e.g.
-skip deletion handling for monthly runs). Pass `null` for `S3MigrationService` in local mode — the
-tasklet no-ops the upload but still sets the exit status.
+skip deletion handling for monthly runs). For `MONTHLY` runs it also reconciles the destination
+bucket against the uploaded keys once the upload succeeds — see
+[Monthly bucket reconciliation](#monthly-bucket-reconciliation). Pass `null` for
+`S3MigrationService` in local mode — the tasklet no-ops the upload but still sets the exit status.
 
 ```java
 @Bean
