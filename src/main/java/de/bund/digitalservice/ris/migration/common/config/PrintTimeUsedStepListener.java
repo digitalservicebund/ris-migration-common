@@ -9,6 +9,7 @@ import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.listener.StepExecutionListener;
 import org.springframework.batch.core.step.StepExecution;
 
+/** Logs how long a step took, for comparing run durations across migrations. */
 @Slf4j
 public class PrintTimeUsedStepListener implements StepExecutionListener {
 

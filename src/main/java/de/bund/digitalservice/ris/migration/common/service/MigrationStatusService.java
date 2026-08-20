@@ -7,6 +7,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.infrastructure.item.ExecutionContext;
 import org.springframework.stereotype.Service;
 
+/**
+ * Advances the project's import checkpoint once a run has finished, so the next run knows where to
+ * resume. Persistence itself is left to the project's {@link MigrationStatusUpdater}.
+ */
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -17,6 +21,15 @@ public class MigrationStatusService {
   private static final String DAILY_VERSION_KEY = "newDailyVersion";
   private static final String HISTORIC_VERSION_KEY = "newHistoricVersion";
 
+  /**
+   * Records the import version the finished run reached. A monthly run also moves the daily
+   * checkpoint to its baseline, so subsequent daily runs pick up from the new dump instead of
+   * re-migrating the months it already covered. Does nothing when the run produced no new version,
+   * for instance because there was nothing to import.
+   *
+   * @param context step context carrying the version written by {@link ImportService}
+   * @param migrationType cadence that produced the run
+   */
   public void updateStatus(ExecutionContext context, MigrationType migrationType) {
     boolean hasDailyVersion =
         migrationType == MigrationType.DAILY && context.containsKey(DAILY_VERSION_KEY);

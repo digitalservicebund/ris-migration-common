@@ -15,6 +15,9 @@ import org.springframework.batch.infrastructure.item.ItemWriter;
  * constructor lambdas so the library stays decoupled from project-specific entity types. No-op for
  * the S3 delete when {@code s3MigrationService} is {@code null} (local mode, no cloud profile
  * active) — the database deletion still runs.
+ *
+ * @param <T> the project's own record type for a migrated document, looked up and deleted through
+ *     the supplied callbacks
  */
 @RequiredArgsConstructor
 @Slf4j

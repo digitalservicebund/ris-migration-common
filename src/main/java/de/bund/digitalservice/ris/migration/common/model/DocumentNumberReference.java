@@ -10,6 +10,11 @@ package de.bund.digitalservice.ris.migration.common.model;
  */
 public interface DocumentNumberReference {
 
+  /**
+   * Identifies the document to withdraw.
+   *
+   * @return the document number to remove from the publication bucket and the migration database
+   */
   String documentNumber();
 
   /**
@@ -22,6 +27,10 @@ public interface DocumentNumberReference {
     return new Simple(documentNumber);
   }
 
-  /** Minimal single-field implementation returned by {@link #of(String)}. */
+  /**
+   * Minimal single-field implementation returned by {@link #of(String)}.
+   *
+   * @param documentNumber the document number to withdraw
+   */
   record Simple(String documentNumber) implements DocumentNumberReference {}
 }

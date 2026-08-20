@@ -24,6 +24,12 @@ public class XmlDocumentItemReader implements ResourceAwareItemReaderItemStream<
   private Resource currentResource;
   private boolean resourceRead = false;
 
+  /**
+   * Creates a reader whose XML parser has external entity resolution and DTD loading disabled, so
+   * untrusted source files cannot pull in remote content.
+   *
+   * @throws IllegalStateException if the parser cannot be configured
+   */
   public XmlDocumentItemReader() {
     try {
       DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();

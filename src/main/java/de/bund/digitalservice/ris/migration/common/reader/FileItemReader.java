@@ -31,6 +31,15 @@ public class FileItemReader implements ItemStreamReader<JurisDocument> {
   private Iterator<Path> pathIterator;
   private long currentFileIndex = 0;
 
+  /**
+   * Reads the files a project-supplied predicate selects.
+   *
+   * @param directoryPath directory walked for source files; a missing directory yields no items
+   *     rather than an error
+   * @param delegate reader turning each matched file into an item
+   * @param validInputPath decides which paths to read, for projects whose selection is more than a
+   *     file extension
+   */
   public FileItemReader(
       String directoryPath, XmlDocumentItemReader delegate, Predicate<Path> validInputPath) {
     this.directoryPath = directoryPath;
@@ -38,6 +47,14 @@ public class FileItemReader implements ItemStreamReader<JurisDocument> {
     this.validInputPath = validInputPath;
   }
 
+  /**
+   * Reads every file carrying the given extension.
+   *
+   * @param directoryPath directory walked for source files; a missing directory yields no items
+   *     rather than an error
+   * @param delegate reader turning each matched file into an item
+   * @param fileExtension extension a file must carry to be read, e.g. {@code ".juris.xml"}
+   */
   public FileItemReader(
       String directoryPath, XmlDocumentItemReader delegate, String fileExtension) {
     this(

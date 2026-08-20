@@ -10,6 +10,10 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.springframework.stereotype.Service;
 
+/**
+ * Collects what a run published or removed, so downstream consumers can refresh only the affected
+ * documents. Entries accumulate over the whole run and are drained when the changelog is built.
+ */
 @Service
 public class ChangeLogService {
 
@@ -17,10 +21,20 @@ public class ChangeLogService {
   private final List<String> deleted = new CopyOnWriteArrayList<>();
   private final JsonMapper jsonMapper = new JsonMapper();
 
+  /**
+   * Records a document consumers should re-fetch.
+   *
+   * @param filename name of the published file
+   */
   public void addChanged(String filename) {
     changed.add(filename);
   }
 
+  /**
+   * Records a document consumers should drop.
+   *
+   * @param filename name of the file removed from the publication bucket
+   */
   public void addDeleted(String filename) {
     deleted.add(filename);
   }
@@ -55,6 +69,13 @@ public class ChangeLogService {
     }
   }
 
+  /**
+   * Builds the full-refresh changelog used after a monthly run, which republishes the entire
+   * population. Per-file entries collected during the run are discarded, since consumers reload
+   * everything anyway.
+   *
+   * @return changelog JSON instructing consumers to refresh their complete state
+   */
   public String buildChangeLogAll() {
     changed.clear();
     deleted.clear();

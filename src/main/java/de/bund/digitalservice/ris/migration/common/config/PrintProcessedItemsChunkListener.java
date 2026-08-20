@@ -6,6 +6,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.listener.ChunkListener;
 import org.springframework.batch.infrastructure.item.Chunk;
 
+/**
+ * Logs a running total of processed items after each chunk, so a long migration shows progress
+ * rather than going silent until it finishes.
+ *
+ * @param <I> item type read into the step
+ * @param <O> item type written out of the step
+ */
 @Slf4j
 public class PrintProcessedItemsChunkListener<I, O> implements ChunkListener<I, O> {
 
