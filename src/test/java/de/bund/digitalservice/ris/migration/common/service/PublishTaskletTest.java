@@ -1,7 +1,9 @@
 package de.bund.digitalservice.ris.migration.common.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import de.bund.digitalservice.ris.migration.common.config.MigrationType;
@@ -32,6 +34,7 @@ class PublishTaskletTest {
     RepeatStatus result = tasklet.execute(stepContribution, chunkContext);
 
     verify(s3MigrationService).uploadFolder("/output", MigrationType.DAILY);
+    verify(s3MigrationService, never()).reconcileDestination(any());
     assertThat(stepContribution.getExitStatus())
         .isEqualTo(new ExitStatus(PublishTasklet.DAILY_MIGRATION_COMPLETED));
     assertThat(result).isEqualTo(RepeatStatus.FINISHED);
@@ -52,6 +55,7 @@ class PublishTaskletTest {
     tasklet.execute(stepContribution, chunkContext);
 
     verify(s3MigrationService).uploadFolder("/output", MigrationType.MONTHLY);
+    verify(s3MigrationService).reconcileDestination(any());
     assertThat(stepContribution.getExitStatus())
         .isEqualTo(new ExitStatus(PublishTasklet.MONTHLY_MIGRATION_COMPLETED));
   }
