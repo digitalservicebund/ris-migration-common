@@ -9,11 +9,18 @@ import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.listener.StepExecutionListener;
 import org.springframework.batch.core.step.StepExecution;
 
+/** Logs how long a step took, for comparing run durations across migrations. */
 @Slf4j
 public class PrintTimeUsedStepListener implements StepExecutionListener {
 
   private static final ZoneId ZONE = ZoneId.of("Europe/Berlin");
 
+  /**
+   * Logs the step's duration as {@code hh:mm:ss.SSS}.
+   *
+   * @param stepExecution execution of the step that just finished
+   * @return {@code null} to leave the step's exit status unchanged
+   */
   @Override
   public ExitStatus afterStep(@Nonnull StepExecution stepExecution) {
     Duration duration =

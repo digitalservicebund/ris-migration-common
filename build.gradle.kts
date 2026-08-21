@@ -1,10 +1,12 @@
 import com.diffplug.spotless.LineEnding
+import org.gradle.api.plugins.quality.Checkstyle
 
 plugins {
   `java-library`
   id("io.spring.dependency-management") version "1.1.7"
   id("com.diffplug.spotless") version "8.10.0"
   id("jacoco")
+  id("checkstyle")
   `maven-publish`
 }
 
@@ -59,6 +61,20 @@ spotless {
   if (System.getProperty("os.name", "undefined").contains("Windows")) {
     lineEndings = LineEnding.UNIX
   }
+}
+
+checkstyle {
+  toolVersion = "13.0.0"
+}
+
+tasks.named<Checkstyle>("checkstyleMain") {
+  source = sourceSets["main"].allJava
+  configFile = rootProject.file("checkstyle/config-main.xml")
+}
+
+// We only care about Javadocs for production code here.
+tasks.named<Checkstyle>("checkstyleTest") {
+  enabled = false
 }
 
 jacoco {

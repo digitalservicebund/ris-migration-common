@@ -24,6 +24,12 @@ public class XmlDocumentItemReader implements ResourceAwareItemReaderItemStream<
   private Resource currentResource;
   private boolean resourceRead = false;
 
+  /**
+   * Creates a reader whose XML parser has external entity resolution and DTD loading disabled, so
+   * untrusted source files cannot pull in remote content.
+   *
+   * @throws IllegalStateException if the parser cannot be configured
+   */
   public XmlDocumentItemReader() {
     try {
       DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
@@ -38,12 +44,26 @@ public class XmlDocumentItemReader implements ResourceAwareItemReaderItemStream<
     }
   }
 
+  /**
+   * Points the reader at the next resource, so the following {@link #read()} returns that file's
+   * document.
+   *
+   * @param resource file to read next
+   */
   @Override
   public void setResource(@Nonnull Resource resource) {
     this.currentResource = resource;
     this.resourceRead = false;
   }
 
+  /**
+   * Reads the current resource once, parsing a DOM document for XML files and leaving the document
+   * {@code null} for JSON files.
+   *
+   * @return the document for the current resource, or {@code null} if no resource is set or it has
+   *     already been read
+   * @throws ParseException if the resource cannot be read or parsed
+   */
   @Override
   public JurisDocument read() {
     if (currentResource == null || resourceRead) {

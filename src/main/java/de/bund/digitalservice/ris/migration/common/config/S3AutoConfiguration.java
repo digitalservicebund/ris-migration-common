@@ -27,18 +27,44 @@ import software.amazon.awssdk.transfer.s3.S3TransferManager;
 @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
 public class S3AutoConfiguration {
 
+  /**
+   * Selects which source objects a project downloads.
+   *
+   * @return default filter accepting every object under the source prefix; override with a bean
+   *     named {@code s3KeyFilter} to narrow it
+   */
   @Bean
   @ConditionalOnMissingBean(name = "s3KeyFilter")
   public Predicate<String> s3KeyFilter() {
     return _ -> true;
   }
 
+  /**
+   * Locates a project's dumps inside the shared source bucket.
+   *
+   * @return builder targeting the bucket root; override to place a project in its own sub-folder
+   */
   @Bean
   @ConditionalOnMissingBean
   public BucketPrefixBuilder bucketPrefixBuilder() {
     return new BucketPrefixBuilder("");
   }
 
+  /**
+   * Assembles the S3 access used by the import and publish steps from the project's own client
+   * beans.
+   *
+   * @param sourceS3Client client for the juris source bucket
+   * @param destinationS3Client client for the publication bucket
+   * @param destinationTransferManager bulk uploader for the publication bucket
+   * @param changeLogService collector notified of published and removed documents
+   * @param bucketPrefixBuilder locates a project's dumps within the source bucket
+   * @param s3KeyFilter restricts which source objects are downloaded
+   * @param sourceBucket bucket the juris exports are read from
+   * @param destBucket bucket the migrated documents are published to
+   * @param monthlyOffset how many months back a monthly run may search for a usable dump
+   * @return the configured S3 access for this project
+   */
   @Bean
   @ConditionalOnMissingBean
   public S3MigrationService s3MigrationService(

@@ -12,6 +12,11 @@ import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.listener.StepExecutionListener;
 import org.springframework.batch.core.step.StepExecution;
 
+/**
+ * Logs a table of the run's migration problems and how many documents failed, so an operator can
+ * review a run's data quality without querying the database. Silent when the run had no errors.
+ * Projects supply the two suppliers, since error storage is project-specific.
+ */
 @RequiredArgsConstructor
 @Slf4j
 public class PrintMigrationErrorsListener implements StepExecutionListener {
@@ -19,6 +24,13 @@ public class PrintMigrationErrorsListener implements StepExecutionListener {
   private final Supplier<List<CountedError>> countedErrorsSupplier;
   private final LongSupplier failedDocumentsCountSupplier;
 
+  /**
+   * Logs the run's counted errors as a table together with the number of failed documents. Logs
+   * nothing when the run had no errors.
+   *
+   * @param stepExecution execution of the step that just finished
+   * @return {@code null} to leave the step's exit status unchanged
+   */
   @Override
   public ExitStatus afterStep(@Nonnull StepExecution stepExecution) {
     var sb = new StringBuilder("\n");
