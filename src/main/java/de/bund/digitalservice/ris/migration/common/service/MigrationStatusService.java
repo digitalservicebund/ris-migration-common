@@ -7,6 +7,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.infrastructure.item.ExecutionContext;
 import org.springframework.stereotype.Service;
 
+/**
+ * Advances the project's import checkpoint once a run has finished, so the next run knows where to
+ * resume. Persistence itself is left to the project's {@link MigrationStatusUpdater}.
+ */
 @Service
 @Slf4j
 @RequiredArgsConstructor
