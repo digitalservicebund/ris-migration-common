@@ -27,6 +27,21 @@ public class ImportService {
   private static final String DAILY_VERSION_KEY = "newDailyVersion";
   private static final String HISTORIC_VERSION_KEY = "newHistoricVersion";
 
+  /**
+   * Makes the source files for this run available in the input directory and records the checkpoint
+   * the run should persist on success.
+   *
+   * <p>A daily run downloads one export day and requires it to exist. Any other cadence downloads
+   * the most recent monthly dump and records a baseline that lets later daily runs bridge the gap
+   * back to the present.
+   *
+   * @param context step context the resulting import version is written to, for {@link
+   *     MigrationStatusService} to persist once the run completes
+   * @param migrationType cadence being run
+   * @param inputDirectory local directory the source files are downloaded to
+   * @param processingDate date the run is executed for
+   * @throws FileNotFoundException if a daily run finds no export for its date
+   */
   public void importData(
       ExecutionContext context,
       MigrationType migrationType,

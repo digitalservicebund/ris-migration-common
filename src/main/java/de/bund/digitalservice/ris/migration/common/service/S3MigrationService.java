@@ -46,10 +46,22 @@ import software.amazon.awssdk.transfer.s3.model.CompletedDirectoryUpload;
 import software.amazon.awssdk.transfer.s3.model.DirectoryUpload;
 import software.amazon.awssdk.transfer.s3.model.UploadDirectoryRequest;
 
+/**
+ * Moves migration data between the juris source bucket and the publication bucket: locating and
+ * downloading the right source export, uploading migrated output, removing withdrawn documents, and
+ * publishing the changelog that tells consumers what changed.
+ */
 @Slf4j
 @RequiredArgsConstructor
 public class S3MigrationService {
 
+  /**
+   * The monthly dump a historic run will migrate.
+   *
+   * @param prefix source bucket prefix holding that month's files
+   * @param baseline checkpoint to persist afterwards, set a few days before the dump's month ends
+   *     so later daily runs re-process the overlap rather than skipping documents
+   */
   public record MonthlyImportSource(String prefix, LocalDate baseline) {}
 
   private final S3Client sourceClient;
@@ -70,10 +82,25 @@ public class S3MigrationService {
   /** Maximum number of keys the S3 {@code DeleteObjects} API accepts per request. */
   private static final int MAX_DELETE_BATCH_SIZE = 1000;
 
+  /**
+   * Locates the export a daily run should migrate. A run covers the previous day, since the day's
+   * own export is not yet complete.
+   *
+   * @param date date the run is executed for
+   * @return source bucket prefix of the export to download
+   */
   public String resolveDailySourcePath(LocalDate date) {
     return bucketPrefixBuilder.buildDailyPrefix(date.minusDays(1));
   }
 
+  /**
+   * Locates the most recent usable monthly dump, walking back month by month when a month holds no
+   * data, and derives the checkpoint to persist after migrating it.
+   *
+   * @param date date the run is executed for
+   * @return the dump to migrate and the daily checkpoint it establishes
+   * @throws IllegalStateException if no dump is found within the configured month range
+   */
   public MonthlyImportSource resolveMonthlyPrefix(LocalDate date) {
     return resolveMonthlyPrefixForDate(date.minusDays(1));
   }
@@ -103,6 +130,12 @@ public class S3MigrationService {
     }
   }
 
+  /**
+   * Fails the run rather than publishing an empty delta when the expected export is absent.
+   *
+   * @param prefix source bucket prefix that must hold at least one object
+   * @throws FileNotFoundException if the prefix is empty
+   */
   public void assertFolderExists(String prefix) throws FileNotFoundException {
     ListObjectsV2Request request =
         ListObjectsV2Request.builder().bucket(sourceBucket).prefix(prefix).maxKeys(1).build();
@@ -111,6 +144,14 @@ public class S3MigrationService {
     }
   }
 
+  /**
+   * Downloads every object under the prefix that passes the project's key filter, preserving the
+   * folder structure below the prefix. Individual download failures are logged and skipped, so the
+   * run continues with the files it did get.
+   *
+   * @param sourcePrefix source bucket prefix to copy from
+   * @param localDest local directory to copy into
+   */
   public void downloadFolder(String sourcePrefix, String localDest) {
     log.info("Downloading from s3://{}/{} to {}", sourceBucket, sourcePrefix, localDest);
     AtomicInteger successCount = new AtomicInteger();
@@ -228,6 +269,12 @@ public class S3MigrationService {
     return root.relativize(file).toString().replace(File.separatorChar, '/');
   }
 
+  /**
+   * Withdraws a single document from publication and records it as deleted for consumers.
+   *
+   * @param filename key to remove from the destination bucket
+   * @throws UncheckedIOException if the removal fails
+   */
   public void delete(String filename) {
     try {
       DeleteObjectRequest request =
@@ -274,6 +321,13 @@ public class S3MigrationService {
     }
   }
 
+  /**
+   * Publishes the changelog closing out the run: a per-file list for a daily run, a full-refresh
+   * instruction for a monthly one. Publish this only after the upload succeeded, so consumers are
+   * never pointed at documents that are not there.
+   *
+   * @param migrationType cadence that produced the run
+   */
   public void writeChangeLog(MigrationType migrationType) {
     String changeLog =
         migrationType == MigrationType.MONTHLY
@@ -282,6 +336,13 @@ public class S3MigrationService {
     saveChangelog(createChangeLogKey(), changeLog);
   }
 
+  /**
+   * Stores changelog JSON in the destination bucket under the given key.
+   *
+   * @param filename destination key, conventionally under {@code changelogs/}
+   * @param content changelog JSON
+   * @throws UncheckedIOException if the upload fails
+   */
   public void saveChangelog(String filename, String content) {
     PutObjectRequest putObjectRequest =
         PutObjectRequest.builder()

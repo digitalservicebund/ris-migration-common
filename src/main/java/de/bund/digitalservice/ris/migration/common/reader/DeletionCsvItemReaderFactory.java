@@ -53,6 +53,7 @@ public final class DeletionCsvItemReaderFactory {
    * @param columnNames all column names, in file order
    * @param fieldSetMapper maps one CSV row to the project's own {@link DocumentNumberReference}
    *     implementation
+   * @param <T> the project's row type
    * @return a reader producing items of the project's row type
    */
   public static <T extends DocumentNumberReference> FlatFileItemReader<T> create(

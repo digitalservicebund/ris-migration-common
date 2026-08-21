@@ -15,14 +15,29 @@ import org.springframework.batch.core.step.StepExecution;
 @Slf4j
 public class NoDataFoundStepListener implements StepExecutionListener {
 
+  /** Exit status signalling that the run had nothing to migrate; branch on this in the job flow. */
   public static final String NO_DATA_FOUND = "NO_DATA_FOUND";
 
   private final Set<String> companionStepNames;
 
+  /**
+   * Creates a listener that also takes companion steps into account.
+   *
+   * @param companionStepNames other steps in the same job execution whose read counts also count as
+   *     data found, so a run is only reported empty when none of them read anything either
+   */
   public NoDataFoundStepListener(String... companionStepNames) {
     this.companionStepNames = Set.of(companionStepNames);
   }
 
+  /**
+   * Sums this step's read count with those of the companion steps in the same job execution and
+   * reports an empty run when nothing was read at all.
+   *
+   * @param stepExecution execution of the step that just finished
+   * @return {@link #NO_DATA_FOUND} if neither this step nor any companion step read an item, {@link
+   *     ExitStatus#COMPLETED} otherwise
+   */
   @Override
   public ExitStatus afterStep(@Nonnull StepExecution stepExecution) {
     long companionReadCount =
