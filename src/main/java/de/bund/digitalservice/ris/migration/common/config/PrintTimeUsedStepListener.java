@@ -15,6 +15,12 @@ public class PrintTimeUsedStepListener implements StepExecutionListener {
 
   private static final ZoneId ZONE = ZoneId.of("Europe/Berlin");
 
+  /**
+   * Logs the step's duration as {@code hh:mm:ss.SSS}.
+   *
+   * @param stepExecution execution of the step that just finished
+   * @return {@code null} to leave the step's exit status unchanged
+   */
   @Override
   public ExitStatus afterStep(@Nonnull StepExecution stepExecution) {
     Duration duration =

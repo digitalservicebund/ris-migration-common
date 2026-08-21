@@ -24,6 +24,13 @@ public class PrintMigrationErrorsListener implements StepExecutionListener {
   private final Supplier<List<CountedError>> countedErrorsSupplier;
   private final LongSupplier failedDocumentsCountSupplier;
 
+  /**
+   * Logs the run's counted errors as a table together with the number of failed documents. Logs
+   * nothing when the run had no errors.
+   *
+   * @param stepExecution execution of the step that just finished
+   * @return {@code null} to leave the step's exit status unchanged
+   */
   @Override
   public ExitStatus afterStep(@Nonnull StepExecution stepExecution) {
     var sb = new StringBuilder("\n");

@@ -47,6 +47,12 @@ public class FileItemWriter<T extends MigrationOutputItem> implements ItemStream
     this.writeFilter = writeFilter;
   }
 
+  /**
+   * Creates the output directory up front, so the first written item does not have to.
+   *
+   * @param executionContext execution context of the step (not used)
+   * @throws ItemStreamException if the output directory cannot be created
+   */
   @Override
   public void open(@Nonnull ExecutionContext executionContext) throws ItemStreamException {
     try {
@@ -56,6 +62,11 @@ public class FileItemWriter<T extends MigrationOutputItem> implements ItemStream
     }
   }
 
+  /**
+   * Writes every item the filter accepts to the output directory, named after its document number.
+   *
+   * @param chunk items to write
+   */
   @Override
   public void write(Chunk<? extends T> chunk) {
     chunk.getItems().stream()

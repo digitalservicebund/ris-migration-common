@@ -63,6 +63,15 @@ public class FileItemReader implements ItemStreamReader<JurisDocument> {
         path -> Files.isRegularFile(path) && path.toString().endsWith(fileExtension));
   }
 
+  /**
+   * Walks the configured directory and prepares the matching files for reading, resuming after the
+   * files already read in a previous execution. A missing directory is not an error: the reader
+   * yields no items and puts {@code NO_INPUT_DATA} into the execution context.
+   *
+   * @param executionContext execution context the restart index is read from and the {@code
+   *     NO_INPUT_DATA} marker is written to
+   * @throws ItemStreamException if the directory cannot be walked
+   */
   @Override
   public void open(@Nonnull ExecutionContext executionContext) throws ItemStreamException {
     delegate.open(executionContext);
@@ -103,6 +112,11 @@ public class FileItemReader implements ItemStreamReader<JurisDocument> {
     }
   }
 
+  /**
+   * Reads the next matched file through the delegate.
+   *
+   * @return the next document, or {@code null} once every matched file has been read
+   */
   @Override
   public JurisDocument read() {
     if (pathIterator != null && pathIterator.hasNext()) {
@@ -117,12 +131,23 @@ public class FileItemReader implements ItemStreamReader<JurisDocument> {
     return null;
   }
 
+  /**
+   * Stores how many files have been read so far, so a restarted job skips them.
+   *
+   * @param executionContext execution context the current file index is written to
+   * @throws ItemStreamException if the delegate fails to update
+   */
   @Override
   public void update(@Nonnull ExecutionContext executionContext) throws ItemStreamException {
     executionContext.put(CURRENT_FILE_INDEX, currentFileIndex);
     delegate.update(executionContext);
   }
 
+  /**
+   * Closes the directory stream and the delegate.
+   *
+   * @throws ItemStreamException if closing fails
+   */
   @Override
   public void close() throws ItemStreamException {
     if (pathStream != null) {

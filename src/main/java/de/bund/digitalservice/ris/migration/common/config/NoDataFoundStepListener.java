@@ -30,6 +30,14 @@ public class NoDataFoundStepListener implements StepExecutionListener {
     this.companionStepNames = Set.of(companionStepNames);
   }
 
+  /**
+   * Sums this step's read count with those of the companion steps in the same job execution and
+   * reports an empty run when nothing was read at all.
+   *
+   * @param stepExecution execution of the step that just finished
+   * @return {@link #NO_DATA_FOUND} if neither this step nor any companion step read an item, {@link
+   *     ExitStatus#COMPLETED} otherwise
+   */
   @Override
   public ExitStatus afterStep(@Nonnull StepExecution stepExecution) {
     long companionReadCount =

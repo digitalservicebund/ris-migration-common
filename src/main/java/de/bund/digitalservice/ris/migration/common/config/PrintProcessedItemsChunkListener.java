@@ -18,6 +18,11 @@ public class PrintProcessedItemsChunkListener<I, O> implements ChunkListener<I, 
 
   private final AtomicLong totalProcessed = new AtomicLong();
 
+  /**
+   * Adds the chunk's size to the running total and logs it.
+   *
+   * @param chunk chunk that was just written
+   */
   @Override
   public void afterChunk(@Nonnull Chunk<O> chunk) {
     long total = totalProcessed.addAndGet(chunk.size());

@@ -28,6 +28,12 @@ public class S3DeletionWriter<T> implements ItemWriter<DocumentNumberReference> 
   private final Consumer<T> recordDeleter;
   private final String fileExtension;
 
+  /**
+   * Deletes each document's S3 object and its database record. Skips the S3 delete in local mode,
+   * and logs a warning for document numbers without a database record.
+   *
+   * @param chunk document numbers identifying the documents to delete
+   */
   @Override
   public void write(Chunk<? extends DocumentNumberReference> chunk) {
     for (DocumentNumberReference ref : chunk) {

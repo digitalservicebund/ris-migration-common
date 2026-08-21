@@ -31,6 +31,15 @@ public class PublishTasklet implements Tasklet {
   private final S3MigrationService s3MigrationService;
   private final String outputDirectory;
 
+  /**
+   * Uploads the output directory to the destination bucket and sets the exit status the job flow
+   * branches on. Skips the upload in local mode.
+   *
+   * @param contribution step contribution the exit status is set on
+   * @param chunkContext chunk context the {@code migrationType} job parameter is read from
+   * @return {@link RepeatStatus#FINISHED}, since the upload runs once
+   * @throws IOException if the upload fails
+   */
   @Override
   public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext)
       throws IOException {
