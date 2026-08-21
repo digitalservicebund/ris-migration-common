@@ -342,9 +342,36 @@ class S3MigrationServiceTest {
     when(destClient.listObjectsV2Paginator(any(ListObjectsV2Request.class))).thenReturn(iterable);
     when(iterable.iterator()).thenReturn(List.of(page).iterator());
 
-    dryRun.reconcileDestination(Set.of());
+    dryRun.reconcileDestination(Set.of("doc.xml"));
 
     verify(destClient, never()).deleteObjects(any(DeleteObjectsRequest.class));
+  }
+
+  @Test
+  void reconcileDestination_emptyUploadSet_throwsAndDoesNotTouchBucket() {
+    S3MigrationService enabled = serviceWithCleanup(true, false);
+
+    assertThatThrownBy(() -> enabled.reconcileDestination(Set.of()))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("empty upload set");
+
+    verify(destClient, never()).listObjectsV2Paginator(any(ListObjectsV2Request.class));
+    verify(destClient, never()).deleteObjects(any(DeleteObjectsRequest.class));
+  }
+
+  @Test
+  void reconcileDestination_emptyUploadSetInDryRun_stillThrows() {
+    S3MigrationService dryRun = serviceWithCleanup(true, true);
+
+    assertThatThrownBy(() -> dryRun.reconcileDestination(Set.of()))
+        .isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void reconcileDestination_emptyUploadSetButCleanupDisabled_doesNotThrow() {
+    assertThatCode(() -> service.reconcileDestination(Set.of())).doesNotThrowAnyException();
+
+    verify(destClient, never()).listObjectsV2Paginator(any(ListObjectsV2Request.class));
   }
 
   @Test

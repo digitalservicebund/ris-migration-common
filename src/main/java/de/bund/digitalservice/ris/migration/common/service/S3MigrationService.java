@@ -23,6 +23,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.Gatherers;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -65,6 +66,9 @@ public class S3MigrationService {
 
   private static final String CHANGELOG_PREFIX = "changelogs/";
   private static final int KEY_LOG_BATCH_SIZE = 100;
+
+  /** Maximum number of keys the S3 {@code DeleteObjects} API accepts per request. */
+  private static final int MAX_DELETE_BATCH_SIZE = 1000;
 
   public String resolveDailySourcePath(LocalDate date) {
     return bucketPrefixBuilder.buildDailyPrefix(date.minusDays(1));
@@ -236,16 +240,16 @@ public class S3MigrationService {
   }
 
   /**
-   * Batch-deletes the given keys from the destination bucket in chunks of up to 1000 (the S3
-   * DeleteObjects limit), recording each successfully deleted key via {@link ChangeLogService}.
+   * Batch-deletes the given keys from the destination bucket in chunks of up to {@link
+   * #MAX_DELETE_BATCH_SIZE}, recording each successfully deleted key via {@link ChangeLogService}.
    */
   public void deleteObjects(Collection<String> keys) {
     if (keys.isEmpty()) {
       return;
     }
     List<String> keyList = new ArrayList<>(keys);
-    for (int i = 0; i < keyList.size(); i += 1000) {
-      List<String> chunk = keyList.subList(i, Math.min(i + 1000, keyList.size()));
+    for (int i = 0; i < keyList.size(); i += MAX_DELETE_BATCH_SIZE) {
+      List<String> chunk = keyList.subList(i, Math.min(i + MAX_DELETE_BATCH_SIZE, keyList.size()));
       List<ObjectIdentifier> identifiers =
           chunk.stream().map(key -> ObjectIdentifier.builder().key(key).build()).toList();
       DeleteObjectsRequest request =
@@ -310,11 +314,20 @@ public class S3MigrationService {
    * app.monthly-cleanup.dry-run} is set. Either way the affected keys are logged. Must only be
    * called after a successful upload, so that stale detection never runs against a
    * partially-published bucket.
+   *
+   * @throws IllegalStateException if {@code expectedKeys} is empty. An empty upload set would mark
+   *     every object in the destination bucket as stale, so a missing or empty output directory
+   *     would empty the bucket. Failing the step instead surfaces the broken upstream run.
    */
   public void reconcileDestination(Set<String> expectedKeys) {
     if (!monthlyCleanupEnabled) {
       log.info("Monthly cleanup disabled. Skipping destination reconciliation.");
       return;
+    }
+    if (expectedKeys.isEmpty()) {
+      throw new IllegalStateException(
+          "Refusing to reconcile destination bucket against an empty upload set: this would delete"
+              + " every object in the bucket. The monthly upload produced no files.");
     }
     Set<String> staleKeys = listDestinationKeys();
     staleKeys.removeAll(expectedKeys);
@@ -339,10 +352,16 @@ public class S3MigrationService {
    */
   private static void logKeys(String action, Collection<String> keys) {
     List<String> keyList = keys instanceof List<String> list ? list : new ArrayList<>(keys);
-    for (int i = 0; i < keyList.size(); i += KEY_LOG_BATCH_SIZE) {
-      List<String> batch = keyList.subList(i, Math.min(i + KEY_LOG_BATCH_SIZE, keyList.size()));
-      log.info("{} [{}-{}/{}]: {}", action, i + 1, i + batch.size(), keyList.size(), batch);
-    }
+    // The stream is sequential and windowFixed emits in order, so this is never contended — the
+    // AtomicInteger exists to carry the running offset across lambda invocations.
+    AtomicInteger offset = new AtomicInteger();
+    keyList.stream()
+        .gather(Gatherers.windowFixed(KEY_LOG_BATCH_SIZE))
+        .forEach(
+            batch -> {
+              int i = offset.getAndAdd(batch.size());
+              log.info("{} [{}-{}/{}]: {}", action, i + 1, i + batch.size(), keyList.size(), batch);
+            });
   }
 
   private Set<String> listDestinationKeys() {

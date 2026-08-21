@@ -164,6 +164,10 @@ unavailable — the only objects removed are ones that no longer exist upstream 
 one job runs at a time per environment; running a daily and monthly job concurrently against the same
 destination bucket is not supported and could race with reconciliation's bucket listing.
 
+An empty upload set is treated as a broken run, not as "everything is stale": if the monthly upload
+produced no files at all (missing or empty output directory), reconciliation throws
+`IllegalStateException` and fails the step instead of deleting the entire bucket.
+
 Opt in explicitly — this is disabled by default:
 
 ```yaml
