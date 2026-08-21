@@ -63,6 +63,11 @@ public class S3AutoConfiguration {
    * @param sourceBucket bucket the juris exports are read from
    * @param destBucket bucket the migrated documents are published to
    * @param monthlyOffset how many months back a monthly run may search for a usable dump
+   * @param monthlyCleanupEnabled whether a monthly run removes objects from the publication bucket
+   *     that are no longer part of the snapshot it just uploaded; off by default, since it deletes
+   *     published documents
+   * @param monthlyCleanupDryRun whether that cleanup only logs what it would delete instead of
+   *     deleting, to validate against a real bucket before enabling deletion
    * @return the configured S3 access for this project
    */
   @Bean

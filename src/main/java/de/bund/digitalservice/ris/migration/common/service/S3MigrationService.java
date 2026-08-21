@@ -206,11 +206,22 @@ public class S3MigrationService {
   }
 
   /**
-   * Uploads the local folder to the destination bucket.
+   * Publishes the migrated output by uploading the directory tree to the destination bucket root.
+   * An absent source directory is a no-op rather than a failure, so a run that produced nothing
+   * does not fail here. Daily runs record every uploaded file as changed for the changelog; monthly
+   * runs skip that, since their changelog marks everything as changed anyway, and collect the
+   * uploaded keys for reconciliation instead.
    *
+   * @param localPath local directory whose tree is uploaded, its structure mirrored below the
+   *     bucket root
+   * @param migrationType cadence of the run, deciding whether uploaded keys are collected for
+   *     reconciliation or uploaded files are recorded for the changelog
    * @return for {@link MigrationType#MONTHLY}, the set of S3 keys that were uploaded (relative to
    *     {@code destBucket} root), used for post-upload reconciliation of stale objects. Empty for
-   *     other migration types, since those are tracked via {@link ChangeLogService} instead.
+   *     other migration types, since those are tracked via {@link ChangeLogService} instead, and
+   *     empty when the source directory does not exist.
+   * @throws IOException if any file failed to upload, or the directory could not be walked. Callers
+   *     must treat this as "the bucket holds a partial snapshot" and skip reconciliation.
    */
   public Set<String> uploadFolder(String localPath, MigrationType migrationType)
       throws IOException {
@@ -289,6 +300,11 @@ public class S3MigrationService {
   /**
    * Batch-deletes the given keys from the destination bucket in chunks of up to {@link
    * #MAX_DELETE_BATCH_SIZE}, recording each successfully deleted key via {@link ChangeLogService}.
+   * Keys S3 refused are logged and skipped, so a partial failure still deletes the rest.
+   *
+   * @param keys destination bucket keys to remove; empty is a no-op
+   * @throws UncheckedIOException if a delete request itself fails, leaving earlier chunks already
+   *     deleted
    */
   public void deleteObjects(Collection<String> keys) {
     if (keys.isEmpty()) {
@@ -376,6 +392,8 @@ public class S3MigrationService {
    * called after a successful upload, so that stale detection never runs against a
    * partially-published bucket.
    *
+   * @param expectedKeys keys just uploaded, i.e. the objects that make up the current snapshot;
+   *     everything else in the bucket is stale
    * @throws IllegalStateException if {@code expectedKeys} is empty. An empty upload set would mark
    *     every object in the destination bucket as stale, so a missing or empty output directory
    *     would empty the bucket. Failing the step instead surfaces the broken upstream run.
