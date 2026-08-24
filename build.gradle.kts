@@ -23,11 +23,11 @@ java {
   }
 }
 
-val awsVersion = "2.53.2"
+val awsVersion = "2.54.1"
 
 dependencyManagement {
   imports {
-    mavenBom("org.springframework.boot:spring-boot-dependencies:4.1.0")
+    mavenBom("org.springframework.boot:spring-boot-dependencies:4.1.1")
   }
 }
 
