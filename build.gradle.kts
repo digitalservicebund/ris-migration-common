@@ -4,7 +4,7 @@ import org.gradle.api.plugins.quality.Checkstyle
 plugins {
   `java-library`
   id("io.spring.dependency-management") version "1.1.7"
-  id("com.diffplug.spotless") version "8.10.0"
+  id("com.diffplug.spotless") version "8.10.1"
   id("jacoco")
   id("checkstyle")
   `maven-publish`
@@ -23,11 +23,11 @@ java {
   }
 }
 
-val awsVersion = "2.53.2"
+val awsVersion = "2.54.6"
 
 dependencyManagement {
   imports {
-    mavenBom("org.springframework.boot:spring-boot-dependencies:4.1.0")
+    mavenBom("org.springframework.boot:spring-boot-dependencies:4.1.1")
   }
 }
 
