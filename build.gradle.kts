@@ -4,7 +4,7 @@ import org.gradle.api.plugins.quality.Checkstyle
 plugins {
   `java-library`
   id("io.spring.dependency-management") version "1.1.7"
-  id("com.diffplug.spotless") version "8.10.1"
+  id("com.diffplug.spotless") version "8.10.2"
   id("jacoco")
   id("checkstyle")
   `maven-publish`
@@ -23,7 +23,7 @@ java {
   }
 }
 
-val awsVersion = "2.54.6"
+val awsVersion = "2.54.13"
 
 dependencyManagement {
   imports {
