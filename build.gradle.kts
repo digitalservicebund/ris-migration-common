@@ -4,6 +4,7 @@ import org.gradle.api.plugins.quality.Checkstyle
 plugins {
   `java-library`
   id("io.spring.dependency-management") version "1.1.7"
+  id("org.sonarqube") version "7.4.0.8496"
   id("com.diffplug.spotless") version "8.10.1"
   id("jacoco")
   id("checkstyle")
@@ -90,6 +91,33 @@ tasks.jacocoTestReport {
     html.required = true
   }
   dependsOn("test")
+}
+
+tasks.getByName("sonar") {
+  dependsOn("jacocoTestReport")
+}
+
+sonar {
+  properties {
+    property("sonar.projectKey", "digitalservicebund_ris-migration-common")
+    property("sonar.organization", "digitalservicebund")
+    property("sonar.host.url", "https://sonarcloud.io")
+    property("sonar.token", System.getenv("SONAR_TOKEN"))
+
+    val standardSources =
+      sourceSets.main
+        .get()
+        .allSource.srcDirs
+        .filter { it.exists() }
+
+    val dynamicConfigs =
+      fileTree(rootDir) {
+        include("*.kts")
+        include(".github/workflows/**")
+      }.files
+
+    property("sonar.sources", (standardSources + dynamicConfigs).joinToString(","))
+  }
 }
 
 publishing {
