@@ -78,6 +78,8 @@ public class FileItemReader implements ItemStreamReader<JurisDocument> {
     if (executionContext.containsKey(CURRENT_FILE_INDEX)) {
       currentFileIndex = executionContext.getLong(CURRENT_FILE_INDEX);
       log.info("Restarting job, skipping the first {} files.", currentFileIndex);
+    } else {
+      currentFileIndex = 0; // guard as crash safety for close()
     }
     Path startPath = Paths.get(directoryPath);
 
@@ -153,6 +155,7 @@ public class FileItemReader implements ItemStreamReader<JurisDocument> {
     if (pathStream != null) {
       pathStream.close();
     }
+    currentFileIndex = 0; // reset for next run
     delegate.close();
   }
 }
