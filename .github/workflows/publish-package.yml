@@ -12,6 +12,7 @@ on:
 jobs:
   pipeline:
     uses: "./.github/workflows/pipeline.yml"
+    secrets: inherit
 
   publish:
     runs-on: ubuntu-latest
