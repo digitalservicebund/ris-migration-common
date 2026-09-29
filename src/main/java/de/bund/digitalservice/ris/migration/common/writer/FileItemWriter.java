@@ -6,6 +6,7 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import org.springframework.batch.infrastructure.item.Chunk;
 import org.springframework.batch.infrastructure.item.ExecutionContext;
@@ -79,15 +80,16 @@ public class FileItemWriter<T extends MigrationOutputItem> implements ItemStream
    * that publish a document outside the chunk-oriented writer.
    *
    * @param item document to write
-   * @param outputDirectory directory the publish step later uploads
+   * @param outputDirectory directory the publishing step later uploads
    * @param fileExtension extension appended to the document number
    * @param <T> output item type
+   * @param contentExtractor Strategy for the content to write
    * @throws IllegalArgumentException if the document number would place the file outside the output
    *     directory
    * @throws UncheckedIOException if the file cannot be written
    */
   public static <T extends MigrationOutputItem> void writeToOutput(
-      T item, String outputDirectory, String fileExtension) {
+      T item, String outputDirectory, String fileExtension, Function<T, String> contentExtractor) {
     try {
       Path outputDir = Path.of(outputDirectory).toAbsolutePath().normalize();
       Path targetPath = outputDir.resolve(item.getDocumentNumber() + fileExtension).normalize();
@@ -95,9 +97,14 @@ public class FileItemWriter<T extends MigrationOutputItem> implements ItemStream
         throw new IllegalArgumentException("Invalid document number: " + item.getDocumentNumber());
       }
       Files.createDirectories(outputDir);
-      Files.writeString(targetPath, item.getXmlContent(), StandardCharsets.UTF_8);
+      Files.writeString(targetPath, contentExtractor.apply(item), StandardCharsets.UTF_8);
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
+  }
+
+  public static <T extends MigrationOutputItem> void writeToOutput(
+      T item, String outputDirectory, String fileExtension) {
+    writeToOutput(item, outputDirectory, fileExtension, MigrationOutputItem::getXmlContent);
   }
 }
