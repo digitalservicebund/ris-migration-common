@@ -83,7 +83,7 @@ public class FileItemWriter<T extends MigrationOutputItem> implements ItemStream
    * @param outputDirectory directory the publishing step later uploads
    * @param fileExtension extension appended to the document number
    * @param <T> output item type
-   * @param contentExtractor Strategy for the content to write
+   * @param contentExtractor Function being applied to the item to get the content
    * @throws IllegalArgumentException if the document number would place the file outside the output
    *     directory
    * @throws UncheckedIOException if the file cannot be written

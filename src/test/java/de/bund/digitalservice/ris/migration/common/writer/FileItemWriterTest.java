@@ -12,8 +12,7 @@ import org.springframework.batch.infrastructure.item.ExecutionContext;
 
 class FileItemWriterTest {
 
-  record TestItem(String number, String xmlContent, String htmlContent)
-      implements MigrationOutputItem {
+  record TestItem(String number, String content) implements MigrationOutputItem {
     @Override
     public String getDocumentNumber() {
       return number;
@@ -21,12 +20,7 @@ class FileItemWriterTest {
 
     @Override
     public String getXmlContent() {
-      return xmlContent;
-    }
-
-    @Override
-    public String getHtmlContent() {
-      return htmlContent;
+      return content;
     }
   }
 
@@ -45,7 +39,7 @@ class FileItemWriterTest {
     var writer = new FileItemWriter<TestItem>(outDir.toString(), ".akn.xml");
     writer.open(new ExecutionContext());
 
-    writer.write(new Chunk<>(List.of(new TestItem("DOC001", "<akn>content</akn>", ""))));
+    writer.write(new Chunk<>(List.of(new TestItem("DOC001", "<akn>content</akn>"))));
 
     Path file = outDir.resolve("DOC001.akn.xml");
     assertThat(Files.exists(file)).isTrue();
@@ -60,8 +54,7 @@ class FileItemWriterTest {
     writer.open(new ExecutionContext());
 
     writer.write(
-        new Chunk<>(
-            List.of(new TestItem("OK001", "content", ""), new TestItem("SKIP002", "skip", ""))));
+        new Chunk<>(List.of(new TestItem("OK001", "content"), new TestItem("SKIP002", "skip"))));
 
     assertThat(Files.exists(outDir.resolve("OK001.xml"))).isTrue();
     assertThat(Files.exists(outDir.resolve("SKIP002.xml"))).isFalse();
@@ -69,7 +62,7 @@ class FileItemWriterTest {
 
   @Test
   void writeToOutput_staticMethod_writesXmlFile(@TempDir Path outDir) throws Exception {
-    FileItemWriter.writeToOutput(new TestItem("STATIC", "<data/>", ""), outDir.toString(), ".xml");
+    FileItemWriter.writeToOutput(new TestItem("STATIC", "<data/>"), outDir.toString(), ".xml");
 
     Path file = outDir.resolve("STATIC.xml");
     assertThat(Files.exists(file)).isTrue();
@@ -77,24 +70,11 @@ class FileItemWriterTest {
   }
 
   @Test
-  void writeToOutput_staticMethod_writesHtmlFile(@TempDir Path outDir) throws Exception {
-    FileItemWriter.writeToOutput(
-        new TestItem("HTML", "<data/>", "<div></div>"),
-        outDir.toString(),
-        ".html",
-        MigrationOutputItem::getHtmlContent);
-
-    Path file = outDir.resolve("HTML.html");
-    assertThat(Files.exists(file)).isTrue();
-    assertThat(Files.readString(file)).isEqualTo("<div></div>");
-  }
-
-  @Test
   void writeToOutput_staticMethod_outputDirectoryDoesNotExistYet_createsItAndWritesFile(
       @TempDir Path base) throws Exception {
     Path outDir = base.resolve("not-yet-created");
 
-    FileItemWriter.writeToOutput(new TestItem("STATIC", "<data/>", ""), outDir.toString(), ".xml");
+    FileItemWriter.writeToOutput(new TestItem("STATIC", "<data/>"), outDir.toString(), ".xml");
 
     Path file = outDir.resolve("STATIC.xml");
     assertThat(Files.exists(file)).isTrue();

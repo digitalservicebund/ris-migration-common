@@ -20,11 +20,4 @@ public interface MigrationOutputItem {
    * @return the migrated document as it should be published
    */
   String getXmlContent();
-
-  /**
-   * Supplies the file's contents.
-   *
-   * @return the pre-processed HTML of the migrated document
-   */
-  String getHtmlContent();
 }
