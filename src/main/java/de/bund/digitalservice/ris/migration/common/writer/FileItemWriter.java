@@ -104,8 +104,8 @@ public class FileItemWriter<T extends MigrationOutputItem> implements ItemStream
   }
 
   /**
-   * Writes the XML content of one item to the output directory, named after its document number. Exposed for steps
-   * that publish a document outside the chunk-oriented writer.
+   * Writes the XML content of one item to the output directory, named after its document number.
+   * Exposed for steps that publish a document outside the chunk-oriented writer.
    *
    * @param item document to write
    * @param outputDirectory directory the publishing step later uploads
