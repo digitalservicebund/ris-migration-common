@@ -6,7 +6,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.function.Function;
-
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.batch.infrastructure.item.Chunk;
@@ -73,8 +72,10 @@ class FileItemWriterTest {
 
   @Test
   void writeToOutput_staticMethod_writesHtmlFile(@TempDir Path outDir) throws Exception {
-    Function<TestItem, String> htmlExtractor = (item) -> String.format("<div>%s</div>", item.getXmlContent());
-    FileItemWriter.writeToOutput(new TestItem("HTML", "<data/>"), outDir.toString(), ".html", htmlExtractor);
+    Function<TestItem, String> htmlExtractor =
+        (item) -> String.format("<div>%s</div>", item.getXmlContent());
+    FileItemWriter.writeToOutput(
+        new TestItem("HTML", "<data/>"), outDir.toString(), ".html", htmlExtractor);
 
     Path file = outDir.resolve("HTML.html");
     assertThat(Files.exists(file)).isTrue();
