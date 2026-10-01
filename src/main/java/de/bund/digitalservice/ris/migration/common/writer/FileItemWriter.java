@@ -65,7 +65,7 @@ public class FileItemWriter<T extends MigrationOutputItem> implements ItemStream
   }
 
   /**
-   * Writes every item the filter accepts into a per-document subdirectory ({@code
+   * Writes XML of every item the filter accepts into a per-document subdirectory ({@code
    * docNum/docNum.ext}).
    *
    * @param chunk items to write
@@ -76,10 +76,11 @@ public class FileItemWriter<T extends MigrationOutputItem> implements ItemStream
   }
 
   /**
-   * Writes every item the filter accepts into a per-document subdirectory ({@code
+   * Writes extracted content of every item the filter accepts into a per-document subdirectory ({@code
    * docNum/docNum.ext}).
    *
    * @param chunk items to write
+   * @param contentExtractor Function being applied to the item to get the content
    */
   public void write(Chunk<? extends T> chunk, Function<T, String> contentExtractor) {
     chunk.getItems().stream()
