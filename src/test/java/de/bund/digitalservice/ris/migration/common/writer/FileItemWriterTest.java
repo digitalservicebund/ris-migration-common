@@ -37,12 +37,12 @@ class FileItemWriterTest {
 
   @Test
   void write_createsFileWithContent(@TempDir Path outDir) throws Exception {
-    var writer = new FileItemWriter<TestItem>(outDir.toString(), ".akn.xml");
+    var writer = new FileItemWriter<TestItem>(outDir.toString(), ".xml");
     writer.open(new ExecutionContext());
 
     writer.write(new Chunk<>(List.of(new TestItem("DOC001", "<akn>content</akn>"))));
 
-    Path file = outDir.resolve("DOC001.akn.xml");
+    Path file = outDir.resolve("DOC001/DOC001.xml");
     assertThat(Files.exists(file)).isTrue();
     assertThat(Files.readString(file)).isEqualTo("<akn>content</akn>");
   }
@@ -57,15 +57,15 @@ class FileItemWriterTest {
     writer.write(
         new Chunk<>(List.of(new TestItem("OK001", "content"), new TestItem("SKIP002", "skip"))));
 
-    assertThat(Files.exists(outDir.resolve("OK001.xml"))).isTrue();
-    assertThat(Files.exists(outDir.resolve("SKIP002.xml"))).isFalse();
+    assertThat(Files.exists(outDir.resolve("OK001/OK001.xml"))).isTrue();
+    assertThat(Files.exists(outDir.resolve("SKIP002/SKIP002.xml"))).isFalse();
   }
 
   @Test
   void writeToOutput_staticMethod_writesXmlFile(@TempDir Path outDir) throws Exception {
     FileItemWriter.writeToOutput(new TestItem("STATIC", "<data/>"), outDir.toString(), ".xml");
 
-    Path file = outDir.resolve("STATIC.xml");
+    Path file = outDir.resolve("STATIC/STATIC.xml");
     assertThat(Files.exists(file)).isTrue();
     assertThat(Files.readString(file)).isEqualTo("<data/>");
   }
@@ -77,7 +77,7 @@ class FileItemWriterTest {
     FileItemWriter.writeToOutput(
         new TestItem("HTML", "<data/>"), outDir.toString(), ".html", htmlExtractor);
 
-    Path file = outDir.resolve("HTML.html");
+    Path file = outDir.resolve("HTML/HTML.html");
     assertThat(Files.exists(file)).isTrue();
     assertThat(Files.readString(file)).isEqualTo("<div><data/></div>");
   }
@@ -89,7 +89,7 @@ class FileItemWriterTest {
 
     FileItemWriter.writeToOutput(new TestItem("STATIC", "<data/>"), outDir.toString(), ".xml");
 
-    Path file = outDir.resolve("STATIC.xml");
+    Path file = outDir.resolve("STATIC/STATIC.xml");
     assertThat(Files.exists(file)).isTrue();
     assertThat(Files.readString(file)).isEqualTo("<data/>");
   }
