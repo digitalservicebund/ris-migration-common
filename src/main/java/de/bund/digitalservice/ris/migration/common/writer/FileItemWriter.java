@@ -8,7 +8,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.function.Function;
 import java.util.function.Predicate;
-
 import org.jspecify.annotations.NonNull;
 import org.springframework.batch.infrastructure.item.Chunk;
 import org.springframework.batch.infrastructure.item.ExecutionContext;
@@ -66,7 +65,8 @@ public class FileItemWriter<T extends MigrationOutputItem> implements ItemStream
   }
 
   /**
-   * Writes every item the filter accepts into a per-document subdirectory ({@code docNum/docNum.ext}).
+   * Writes every item the filter accepts into a per-document subdirectory ({@code
+   * docNum/docNum.ext}).
    *
    * @param chunk items to write
    */
@@ -76,14 +76,15 @@ public class FileItemWriter<T extends MigrationOutputItem> implements ItemStream
   }
 
   /**
-   * Writes every item the filter accepts into a per-document subdirectory ({@code docNum/docNum.ext}).
+   * Writes every item the filter accepts into a per-document subdirectory ({@code
+   * docNum/docNum.ext}).
    *
    * @param chunk items to write
    */
   public void write(Chunk<? extends T> chunk, Function<T, String> contentExtractor) {
     chunk.getItems().stream()
-      .filter(writeFilter)
-      .forEach(item -> writeToOutput(item, outputDirectory, fileExtension,  contentExtractor));
+        .filter(writeFilter)
+        .forEach(item -> writeToOutput(item, outputDirectory, fileExtension, contentExtractor));
   }
 
   /**
@@ -103,7 +104,10 @@ public class FileItemWriter<T extends MigrationOutputItem> implements ItemStream
       T item, String outputDirectory, String fileExtension, Function<T, String> contentExtractor) {
     try {
       Path outputDir = Path.of(outputDirectory).toAbsolutePath().normalize();
-      Path targetPath = outputDir.resolve(String.format("%1$s/%1$s%2$s", item.getDocumentNumber(), fileExtension)).normalize();
+      Path targetPath =
+          outputDir
+              .resolve(String.format("%1$s/%1$s%2$s", item.getDocumentNumber(), fileExtension))
+              .normalize();
       if (!targetPath.startsWith(outputDir)) {
         throw new IllegalArgumentException("Invalid document number: " + item.getDocumentNumber());
       }
@@ -115,8 +119,9 @@ public class FileItemWriter<T extends MigrationOutputItem> implements ItemStream
   }
 
   /**
-   * Writes the XML content of one item into a per-document subdirectory ({@code docNum/docNum.ext}).
-   * Exposed for steps that publish a document outside the chunk-oriented writer.
+   * Writes the XML content of one item into a per-document subdirectory ({@code
+   * docNum/docNum.ext}). Exposed for steps that publish a document outside the chunk-oriented
+   * writer.
    *
    * @param item document to write
    * @param outputDirectory directory the publishing step later uploads
