@@ -76,8 +76,8 @@ public class FileItemWriter<T extends MigrationOutputItem> implements ItemStream
   }
 
   /**
-   * Writes extracted content of every item the filter accepts into a per-document subdirectory ({@code
-   * docNum/docNum.ext}).
+   * Writes extracted content of every item the filter accepts into a per-document subdirectory
+   * ({@code docNum/docNum.ext}).
    *
    * @param chunk items to write
    * @param contentExtractor Function being applied to the item to get the content
@@ -105,6 +105,8 @@ public class FileItemWriter<T extends MigrationOutputItem> implements ItemStream
       T item, String outputDirectory, String fileExtension, Function<T, String> contentExtractor) {
     try {
       Path outputDir = Path.of(outputDirectory).toAbsolutePath().normalize();
+      // The String format function uses the first argument twice, e.g.
+      // String.format("%1$s/%1$s%2$s", "doc", ".xml") -> "doc/doc.xml"
       Path targetPath =
           outputDir
               .resolve(String.format("%1$s/%1$s%2$s", item.getDocumentNumber(), fileExtension))
