@@ -5,7 +5,7 @@ plugins {
   `java-library`
   id("io.spring.dependency-management") version "1.1.7"
   id("org.sonarqube") version "7.5.0.8588"
-  id("com.diffplug.spotless") version "8.10.2"
+  id("com.diffplug.spotless") version "8.10.3"
   id("jacoco")
   id("checkstyle")
   `maven-publish`
@@ -24,7 +24,7 @@ java {
   }
 }
 
-val awsVersion = "2.54.13"
+val awsVersion = "2.55.7"
 
 dependencyManagement {
   imports {
