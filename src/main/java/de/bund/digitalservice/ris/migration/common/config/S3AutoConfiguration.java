@@ -2,6 +2,7 @@ package de.bund.digitalservice.ris.migration.common.config;
 
 import de.bund.digitalservice.ris.migration.common.service.BucketPrefixBuilder;
 import de.bund.digitalservice.ris.migration.common.service.ChangeLogService;
+import de.bund.digitalservice.ris.migration.common.service.DestinationPrefix;
 import de.bund.digitalservice.ris.migration.common.service.S3MigrationService;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -19,8 +20,9 @@ import software.amazon.awssdk.transfer.s3.S3TransferManager;
  * Auto-configures {@link S3MigrationService} for cloud runs using project-provided S3 client beans
  * and optional customisation beans. Projects declare {@code sourceS3Client}, {@code
  * destinationS3Client}, and {@code destinationTransferManager} beans in their own {@code S3Config}.
- * Optional: {@code BucketPrefixBuilder} (default: empty sub-path) and a {@code Predicate<String>}
- * named {@code s3KeyFilter} (default: accept all keys).
+ * Optional: {@code BucketPrefixBuilder} (default: empty sub-path), a {@code Predicate<String>}
+ * named {@code s3KeyFilter} (default: accept all keys), and {@code aws.destination.prefix}
+ * (default: bucket root) to namespace a project's publication bucket, e.g. by schema version.
  */
 @AutoConfiguration(after = MigrationAutoConfiguration.class)
 @Profile("cloud")
@@ -62,6 +64,8 @@ public class S3AutoConfiguration {
    * @param s3KeyFilter restricts which source objects are downloaded
    * @param sourceBucket bucket the juris exports are read from
    * @param destBucket bucket the migrated documents are published to
+   * @param destPrefix key prefix every destination-bucket operation is scoped under, e.g. {@code
+   *     v1} to namespace a schema version within a shared bucket; empty for the bucket root
    * @param monthlyOffset how many months back a monthly run may search for a usable dump
    * @param monthlyCleanupEnabled whether a monthly run removes objects from the publication bucket
    *     that are no longer part of the snapshot it just uploaded; off by default, since it deletes
@@ -81,6 +85,7 @@ public class S3AutoConfiguration {
       @Qualifier("s3KeyFilter") Predicate<String> s3KeyFilter,
       @Value("${aws.bucket}") String sourceBucket,
       @Value("${aws.destination.bucket}") String destBucket,
+      @Value("${aws.destination.prefix:}") String destPrefix,
       @Value("${app.monthly-offset}") int monthlyOffset,
       @Value("${app.monthly-cleanup.enabled:false}") boolean monthlyCleanupEnabled,
       @Value("${app.monthly-cleanup.dry-run:false}") boolean monthlyCleanupDryRun) {
@@ -97,6 +102,7 @@ public class S3AutoConfiguration {
         s3KeyFilter,
         monthlyStart,
         monthlyCleanupEnabled,
-        monthlyCleanupDryRun);
+        monthlyCleanupDryRun,
+        new DestinationPrefix(destPrefix));
   }
 }

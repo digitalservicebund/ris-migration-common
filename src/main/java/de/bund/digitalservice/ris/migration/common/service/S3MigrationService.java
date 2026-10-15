@@ -76,6 +76,9 @@ public class S3MigrationService {
   private final boolean monthlyCleanupEnabled;
   private final boolean monthlyCleanupDryRun;
 
+  /** Scopes every destination-bucket operation (upload, delete, reconciliation, changelogs). */
+  private final DestinationPrefix destPrefix;
+
   private static final String CHANGELOG_PREFIX = "changelogs/";
   private static final int KEY_LOG_BATCH_SIZE = 100;
 
@@ -206,20 +209,20 @@ public class S3MigrationService {
   }
 
   /**
-   * Publishes the migrated output by uploading the directory tree to the destination bucket root.
-   * An absent source directory is a no-op rather than a failure, so a run that produced nothing
-   * does not fail here. Daily runs record every uploaded file as changed for the changelog; monthly
-   * runs skip that, since their changelog marks everything as changed anyway, and collect the
-   * uploaded keys for reconciliation instead.
+   * Publishes the migrated output by uploading the directory tree below {@link #destPrefix} (the
+   * bucket root if unset). An absent source directory is a no-op rather than a failure, so a run
+   * that produced nothing does not fail here. Daily runs record every uploaded file as changed for
+   * the changelog; monthly runs skip that, since their changelog marks everything as changed
+   * anyway, and collect the uploaded keys for reconciliation instead.
    *
-   * @param localPath local directory whose tree is uploaded, its structure mirrored below the
-   *     bucket root
+   * @param localPath local directory whose tree is uploaded, its structure mirrored below {@link
+   *     #destPrefix}
    * @param migrationType cadence of the run, deciding whether uploaded keys are collected for
    *     reconciliation or uploaded files are recorded for the changelog
    * @return for {@link MigrationType#MONTHLY}, the set of S3 keys that were uploaded (relative to
-   *     {@code destBucket} root), used for post-upload reconciliation of stale objects. Empty for
-   *     other migration types, since those are tracked via {@link ChangeLogService} instead, and
-   *     empty when the source directory does not exist.
+   *     {@code destBucket} root, including {@link #destPrefix}), used for post-upload
+   *     reconciliation of stale objects. Empty for other migration types, since those are tracked
+   *     via {@link ChangeLogService} instead, and empty when the source directory does not exist.
    * @throws IOException if any file failed to upload, or the directory could not be walked. Callers
    *     must treat this as "the bucket holds a partial snapshot" and skip reconciliation.
    */
@@ -235,7 +238,11 @@ public class S3MigrationService {
 
     try {
       UploadDirectoryRequest uploadDirectoryRequest =
-          UploadDirectoryRequest.builder().source(rootPath).bucket(destBucket).build();
+          UploadDirectoryRequest.builder()
+              .source(rootPath)
+              .bucket(destBucket)
+              .s3Prefix(destPrefix.value())
+              .build();
       DirectoryUpload directoryUpload =
           destinationTransferManager.uploadDirectory(uploadDirectoryRequest);
       Set<String> uploadedKeys = Set.of();
@@ -246,7 +253,7 @@ public class S3MigrationService {
               stream
                   .parallel()
                   .filter(Files::isRegularFile)
-                  .map(file -> toS3Key(rootPath, file))
+                  .map(file -> destPrefix.key(toS3Key(rootPath, file)))
                   .collect(Collectors.toUnmodifiableSet());
           numberOfUploadedFiles = uploadedKeys.size();
           log.info(
@@ -255,7 +262,11 @@ public class S3MigrationService {
               numberOfUploadedFiles);
         } else {
           List<String> uploadedFiles =
-              stream.parallel().filter(Files::isRegularFile).map(Path::toString).toList();
+              stream
+                  .parallel()
+                  .filter(Files::isRegularFile)
+                  .map(file -> toS3Key(rootPath, file))
+                  .toList();
           numberOfUploadedFiles = uploadedFiles.size();
           uploadedFiles.forEach(changeLogService::addChanged);
           log.info("Computed list of {} files for changelog.", numberOfUploadedFiles);
@@ -289,7 +300,7 @@ public class S3MigrationService {
   public void delete(String filename) {
     try {
       DeleteObjectRequest request =
-          DeleteObjectRequest.builder().bucket(destBucket).key(filename).build();
+          DeleteObjectRequest.builder().bucket(destBucket).key(destPrefix.key(filename)).build();
       destClient.deleteObject(request);
       changeLogService.addDeleted(filename);
     } catch (S3Exception e) {
@@ -375,18 +386,19 @@ public class S3MigrationService {
     }
   }
 
-  private static String createChangeLogKey() {
+  private String createChangeLogKey() {
     String timestamp =
         DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
             .withZone(ZoneOffset.UTC)
             .format(Instant.now());
-    return CHANGELOG_PREFIX + timestamp + ".json";
+    return destPrefix.key(CHANGELOG_PREFIX + timestamp + ".json");
   }
 
   /**
-   * Reconciles the destination bucket after a monthly upload: any object present in the bucket that
-   * is not part of {@code expectedKeys} (the set just uploaded by {@link #uploadFolder(String,
-   * MigrationType)}) is considered stale and removed. No-op unless {@code
+   * Reconciles the destination bucket after a monthly upload: any object under {@link #destPrefix}
+   * that is not part of {@code expectedKeys} (the set just uploaded by {@link #uploadFolder(String,
+   * MigrationType)}) is considered stale and removed. Objects outside {@link #destPrefix} are left
+   * untouched, so other schema versions sharing the bucket are unaffected. No-op unless {@code
    * app.monthly-cleanup.enabled} is set; logs what would be deleted instead of deleting when {@code
    * app.monthly-cleanup.dry-run} is set. Either way the affected keys are logged. Must only be
    * called after a successful upload, so that stale detection never runs against a
@@ -445,13 +457,17 @@ public class S3MigrationService {
 
   private Set<String> listDestinationKeys() {
     Set<String> keys = new HashSet<>();
+    String changelogPrefix = destPrefix.key(CHANGELOG_PREFIX);
     ListObjectsV2Iterable pages =
         destClient.listObjectsV2Paginator(
-            ListObjectsV2Request.builder().bucket(destBucket).build());
+            ListObjectsV2Request.builder()
+                .bucket(destBucket)
+                .prefix(destPrefix.listingPrefix())
+                .build());
     for (ListObjectsV2Response page : pages) {
       for (S3Object object : page.contents()) {
         String key = object.key();
-        if (!key.startsWith(CHANGELOG_PREFIX)) {
+        if (!key.startsWith(changelogPrefix)) {
           keys.add(key);
         }
       }
