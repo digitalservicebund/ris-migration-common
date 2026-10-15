@@ -60,6 +60,11 @@ class S3MigrationServiceTest {
   }
 
   private S3MigrationService serviceWithCleanup(boolean cleanupEnabled, boolean dryRun) {
+    return serviceWithCleanupAndPrefix(cleanupEnabled, dryRun, "");
+  }
+
+  private S3MigrationService serviceWithCleanupAndPrefix(
+      boolean cleanupEnabled, boolean dryRun, String destPrefix) {
     return new S3MigrationService(
         sourceClient,
         destClient,
@@ -71,7 +76,8 @@ class S3MigrationServiceTest {
         Predicate.not(String::isEmpty),
         LocalDate.of(2020, Month.JANUARY, 1),
         cleanupEnabled,
-        dryRun);
+        dryRun,
+        new DestinationPrefix(destPrefix));
   }
 
   @Test
@@ -109,6 +115,29 @@ class S3MigrationServiceTest {
 
     verify(destClient).deleteObject(any(DeleteObjectRequest.class));
     verify(changeLogService).addDeleted("doc001.xml");
+  }
+
+  @Test
+  void delete_withPrefix_scopesKeyUnderPrefix() {
+    S3MigrationService prefixed = serviceWithCleanupAndPrefix(false, false, "v1");
+
+    prefixed.delete("doc001.xml");
+
+    ArgumentCaptor<DeleteObjectRequest> captor = ArgumentCaptor.forClass(DeleteObjectRequest.class);
+    verify(destClient).deleteObject(captor.capture());
+    assertThat(captor.getValue().key()).isEqualTo("v1/doc001.xml");
+    verify(changeLogService).addDeleted("doc001.xml");
+  }
+
+  @Test
+  void writeChangeLog_withoutPrefix_savesAtBucketRoot() {
+    when(changeLogService.buildChangeLog()).thenReturn("{\"changed\":[],\"deleted\":[]}");
+
+    service.writeChangeLog(MigrationType.DAILY);
+
+    ArgumentCaptor<PutObjectRequest> captor = ArgumentCaptor.forClass(PutObjectRequest.class);
+    verify(destClient).putObject(captor.capture(), any(RequestBody.class));
+    assertThat(captor.getValue().key()).startsWith("changelogs/");
   }
 
   @Test
@@ -204,6 +233,30 @@ class S3MigrationServiceTest {
 
     assertThat(result).containsExactly("doc.xml");
     verify(changeLogService, never()).addChanged(any());
+  }
+
+  @Test
+  void uploadFolder_withPrefix_appliesS3PrefixAndPrefixesReconciliationKeys(@TempDir Path localDir)
+      throws IOException {
+    Files.writeString(localDir.resolve("doc.xml"), "<root/>");
+    S3MigrationService prefixed = serviceWithCleanupAndPrefix(false, false, "v1");
+    var completed = mock(CompletedDirectoryUpload.class);
+    var upload = mock(DirectoryUpload.class);
+    when(transferManager.uploadDirectory(
+            any(software.amazon.awssdk.transfer.s3.model.UploadDirectoryRequest.class)))
+        .thenReturn(upload);
+    when(upload.completionFuture())
+        .thenReturn(java.util.concurrent.CompletableFuture.completedFuture(completed));
+    when(completed.failedTransfers()).thenReturn(List.of());
+
+    Set<String> result = prefixed.uploadFolder(localDir.toString(), MigrationType.MONTHLY);
+
+    assertThat(result).containsExactly("v1/doc.xml");
+    ArgumentCaptor<software.amazon.awssdk.transfer.s3.model.UploadDirectoryRequest> captor =
+        ArgumentCaptor.forClass(
+            software.amazon.awssdk.transfer.s3.model.UploadDirectoryRequest.class);
+    verify(transferManager).uploadDirectory(captor.capture());
+    assertThat(captor.getValue().s3Prefix()).contains("v1");
   }
 
   @Test
@@ -334,6 +387,86 @@ class S3MigrationServiceTest {
   }
 
   @Test
+  void reconcileDestination_withPrefix_listsOnlyUnderPrefix() {
+    S3MigrationService prefixed = serviceWithCleanupAndPrefix(true, false, "v1");
+    var current = S3Object.builder().key("v1/doc.xml").build();
+    var page = ListObjectsV2Response.builder().contents(List.of(current)).build();
+    var iterable = mock(ListObjectsV2Iterable.class);
+    when(destClient.listObjectsV2Paginator(any(ListObjectsV2Request.class))).thenReturn(iterable);
+    when(iterable.iterator()).thenReturn(List.of(page).iterator());
+
+    prefixed.reconcileDestination(Set.of("v1/doc.xml"));
+
+    ArgumentCaptor<ListObjectsV2Request> captor =
+        ArgumentCaptor.forClass(ListObjectsV2Request.class);
+    verify(destClient).listObjectsV2Paginator(captor.capture());
+    assertThat(captor.getValue().prefix()).isEqualTo("v1/");
+    verify(destClient, never()).deleteObjects(any(DeleteObjectsRequest.class));
+  }
+
+  @Test
+  void uploadAndReconcile_nonCanonicalNestedPrefix_useSameKeys(@TempDir Path localDir)
+      throws IOException {
+    Files.writeString(localDir.resolve("doc.xml"), "<root/>");
+    S3MigrationService prefixed = serviceWithCleanupAndPrefix(true, false, "/prod/v1/");
+    var completed = mock(CompletedDirectoryUpload.class);
+    var upload = mock(DirectoryUpload.class);
+    when(transferManager.uploadDirectory(
+            any(software.amazon.awssdk.transfer.s3.model.UploadDirectoryRequest.class)))
+        .thenReturn(upload);
+    when(upload.completionFuture())
+        .thenReturn(java.util.concurrent.CompletableFuture.completedFuture(completed));
+    when(completed.failedTransfers()).thenReturn(List.of());
+    var existing = S3Object.builder().key("prod/v1/doc.xml").build();
+    var page = ListObjectsV2Response.builder().contents(List.of(existing)).build();
+    var iterable = mock(ListObjectsV2Iterable.class);
+    when(destClient.listObjectsV2Paginator(any(ListObjectsV2Request.class))).thenReturn(iterable);
+    when(iterable.iterator()).thenReturn(List.of(page).iterator());
+
+    Set<String> uploaded = prefixed.uploadFolder(localDir.toString(), MigrationType.MONTHLY);
+    prefixed.reconcileDestination(uploaded);
+
+    assertThat(uploaded).containsExactly("prod/v1/doc.xml");
+    ArgumentCaptor<software.amazon.awssdk.transfer.s3.model.UploadDirectoryRequest> uploadCaptor =
+        ArgumentCaptor.forClass(
+            software.amazon.awssdk.transfer.s3.model.UploadDirectoryRequest.class);
+    verify(transferManager).uploadDirectory(uploadCaptor.capture());
+    assertThat(uploadCaptor.getValue().s3Prefix()).contains("prod/v1");
+    ArgumentCaptor<ListObjectsV2Request> listCaptor =
+        ArgumentCaptor.forClass(ListObjectsV2Request.class);
+    verify(destClient).listObjectsV2Paginator(listCaptor.capture());
+    assertThat(listCaptor.getValue().prefix()).isEqualTo("prod/v1/");
+    verify(destClient, never()).deleteObjects(any(DeleteObjectsRequest.class));
+  }
+
+  @Test
+  void reconcileDestination_withPrefix_excludesOwnChangelogsFromStaleCheck() {
+    S3MigrationService prefixed = serviceWithCleanupAndPrefix(true, false, "v1");
+    var current = S3Object.builder().key("v1/doc.xml").build();
+    var changelog = S3Object.builder().key("v1/changelogs/2025-01-01T00:00:00Z.json").build();
+    var page = ListObjectsV2Response.builder().contents(List.of(current, changelog)).build();
+    var iterable = mock(ListObjectsV2Iterable.class);
+    when(destClient.listObjectsV2Paginator(any(ListObjectsV2Request.class))).thenReturn(iterable);
+    when(iterable.iterator()).thenReturn(List.of(page).iterator());
+
+    prefixed.reconcileDestination(Set.of("v1/doc.xml"));
+
+    verify(destClient, never()).deleteObjects(any(DeleteObjectsRequest.class));
+  }
+
+  @Test
+  void writeChangeLog_withPrefix_savesUnderPrefix() {
+    S3MigrationService prefixed = serviceWithCleanupAndPrefix(false, false, "v1");
+    when(changeLogService.buildChangeLog()).thenReturn("{\"changed\":[],\"deleted\":[]}");
+
+    prefixed.writeChangeLog(MigrationType.DAILY);
+
+    ArgumentCaptor<PutObjectRequest> captor = ArgumentCaptor.forClass(PutObjectRequest.class);
+    verify(destClient).putObject(captor.capture(), any(RequestBody.class));
+    assertThat(captor.getValue().key()).startsWith("v1/changelogs/");
+  }
+
+  @Test
   void reconcileDestination_dryRun_listsButDoesNotDelete() {
     S3MigrationService dryRun = serviceWithCleanup(true, true);
     var stale = S3Object.builder().key("old-doc.xml").build();
@@ -375,8 +508,11 @@ class S3MigrationServiceTest {
   }
 
   @Test
-  void uploadFolder_dailyMode_addsChangedFiles(@TempDir Path localDir) throws IOException {
+  void uploadFolder_dailyMode_recordsKeysRelativeToUploadFolder(@TempDir Path localDir)
+      throws IOException {
     Files.writeString(localDir.resolve("doc.xml"), "<root/>");
+    Files.createDirectories(localDir.resolve("sub"));
+    Files.writeString(localDir.resolve("sub/other.xml"), "<root/>");
     var completed = mock(CompletedDirectoryUpload.class);
     var upload = mock(DirectoryUpload.class);
     when(transferManager.uploadDirectory(
@@ -388,6 +524,8 @@ class S3MigrationServiceTest {
 
     service.uploadFolder(localDir.toString(), MigrationType.DAILY);
 
-    verify(changeLogService).addChanged(any());
+    verify(changeLogService).addChanged("doc.xml");
+    verify(changeLogService).addChanged("sub/other.xml");
+    verify(changeLogService, times(2)).addChanged(any());
   }
 }

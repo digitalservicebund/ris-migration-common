@@ -156,8 +156,9 @@ upstream between monthly runs pile up in the destination bucket forever.
 
 `PublishTasklet` closes that gap for `MONTHLY` runs by calling
 `S3MigrationService.reconcileDestination(uploadedKeys)` right after the upload completes
-successfully: it lists the destination bucket (skipping the `changelogs/` prefix), diffs it against
-the keys just uploaded, and deletes whatever's left over. Because deletion only ever runs after the
+successfully: it lists the destination bucket below the destination prefix, if one is configured
+(skipping its `changelogs/` folder), diffs it against the keys just uploaded, and deletes whatever's
+left over. Because deletion only ever runs after the
 new snapshot is confirmed fully uploaded (upload failures abort before reconciliation runs), and S3
 overwrites same-key objects atomically, no document that's still part of the current snapshot is ever
 unavailable — the only objects removed are ones that no longer exist upstream at all. This assumes
@@ -177,6 +178,22 @@ app:
     dry-run: true   # default: false — logs what would be deleted instead of deleting; use to
                      # validate against a real bucket before enabling actual deletes
 ```
+
+#### Destination prefix
+
+To publish into a folder of the destination bucket instead of its root, e.g. to namespace a schema
+version, set:
+
+```yaml
+aws:
+  destination:
+    prefix: v1   # default: empty (bucket root); nested prefixes like prod/v1 also work
+```
+
+Uploads, deletions, reconciliation and changelogs (`v1/changelogs/...`) are all scoped below the
+prefix; nothing outside it is read or touched. Leading and trailing slashes are ignored (`v1`, `v1/`
+and `/v1/` are the same prefix). A prefix with an empty, `.` or `..` segment (e.g. `prod//v1`) is
+rejected at startup.
 
 ### 5. Set up your own persistence
 
