@@ -79,7 +79,6 @@ public class S3MigrationService {
   /** Scopes every destination-bucket operation (upload, delete, reconciliation, changelogs). */
   private final DestinationPrefix destPrefix;
 
-  private static final String CHANGELOG_PREFIX = "changelogs/";
   private static final int KEY_LOG_BATCH_SIZE = 100;
 
   /** Maximum number of keys the S3 {@code DeleteObjects} API accepts per request. */
@@ -391,7 +390,7 @@ public class S3MigrationService {
         DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
             .withZone(ZoneOffset.UTC)
             .format(Instant.now());
-    return destPrefix.key(CHANGELOG_PREFIX + timestamp + ".json");
+    return destPrefix.changelogKey(timestamp + ".json");
   }
 
   /**
@@ -457,7 +456,7 @@ public class S3MigrationService {
 
   private Set<String> listDestinationKeys() {
     Set<String> keys = new HashSet<>();
-    String changelogPrefix = destPrefix.key(CHANGELOG_PREFIX);
+    String changelogPrefix = destPrefix.changelogPrefix();
     ListObjectsV2Iterable pages =
         destClient.listObjectsV2Paginator(
             ListObjectsV2Request.builder()
