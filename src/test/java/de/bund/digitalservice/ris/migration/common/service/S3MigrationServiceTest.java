@@ -338,6 +338,55 @@ class S3MigrationServiceTest {
   }
 
   @Test
+  void deleteDocuments_withPrefix_scopesKeysAndRecordsRelativeKeys() {
+    S3MigrationService prefixed = serviceWithCleanupAndPrefix(false, false, "v1");
+    var response =
+        DeleteObjectsResponse.builder()
+            .deleted(
+                DeletedObject.builder().key("v1/DOC1/DOC1.xml").build(),
+                DeletedObject.builder().key("v1/DOC1/DOC1.html").build())
+            .build();
+    when(destClient.deleteObjects(any(DeleteObjectsRequest.class))).thenReturn(response);
+
+    prefixed.deleteDocuments(List.of("DOC1/DOC1.xml", "DOC1/DOC1.html"));
+
+    ArgumentCaptor<DeleteObjectsRequest> captor =
+        ArgumentCaptor.forClass(DeleteObjectsRequest.class);
+    verify(destClient).deleteObjects(captor.capture());
+    assertThat(captor.getValue().delete().objects())
+        .extracting(ObjectIdentifier::key)
+        .containsExactly("v1/DOC1/DOC1.xml", "v1/DOC1/DOC1.html");
+    verify(changeLogService).addDeleted("DOC1/DOC1.xml");
+    verify(changeLogService).addDeleted("DOC1/DOC1.html");
+  }
+
+  @Test
+  void deleteDocuments_withoutPrefix_deletesKeysAsGiven() {
+    when(destClient.deleteObjects(any(DeleteObjectsRequest.class)))
+        .thenReturn(
+            DeleteObjectsResponse.builder()
+                .deleted(DeletedObject.builder().key("DOC1/DOC1.xml").build())
+                .build());
+
+    service.deleteDocuments(List.of("DOC1/DOC1.xml"));
+
+    ArgumentCaptor<DeleteObjectsRequest> captor =
+        ArgumentCaptor.forClass(DeleteObjectsRequest.class);
+    verify(destClient).deleteObjects(captor.capture());
+    assertThat(captor.getValue().delete().objects())
+        .extracting(ObjectIdentifier::key)
+        .containsExactly("DOC1/DOC1.xml");
+    verify(changeLogService).addDeleted("DOC1/DOC1.xml");
+  }
+
+  @Test
+  void deleteDocuments_emptyCollection_doesNotCallS3() {
+    serviceWithCleanupAndPrefix(false, false, "v1").deleteDocuments(List.of());
+
+    verify(destClient, never()).deleteObjects(any(DeleteObjectsRequest.class));
+  }
+
+  @Test
   void reconcileDestination_cleanupDisabled_doesNotListOrDelete() {
     service.reconcileDestination(Set.of("doc.xml"));
 

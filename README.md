@@ -567,3 +567,9 @@ public record TransformedDocument(String documentNumber, String xmlContent)
     @Override public String getXmlContent()      { return xmlContent; }
 }
 ```
+
+To delete published documents yourself instead of through `S3DeletionWriter`, pass their keys
+relative to the destination prefix (for files written by `FileItemWriter`, build them with
+`FileItemWriter.relativePath(documentNumber, extension)`) to `S3MigrationService.delete` or, batched,
+`S3MigrationService.deleteDocuments`. Both prepend the destination prefix; `deleteObjects` does not,
+as it expects full bucket keys.
