@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Gatherers;
@@ -317,6 +318,31 @@ public class S3MigrationService {
    *     deleted
    */
   public void deleteObjects(Collection<String> keys) {
+    deleteKeys(keys, Function.identity());
+  }
+
+  /**
+   * Withdraws several documents from publication in batched requests and records them as deleted
+   * for consumers. The batched counterpart of {@link #delete(String)}: keys are relative to {@link
+   * #destPrefix}, which is prepended here, and the changelog records them without it.
+   *
+   * @param relativeKeys keys below {@link #destPrefix}, as the project builds them, e.g. {@code
+   *     doc.xml} or {@code doc/doc.xml}; empty is a no-op
+   * @throws UncheckedIOException if a delete request itself fails, leaving earlier chunks already
+   *     deleted
+   */
+  public void deleteDocuments(Collection<String> relativeKeys) {
+    int prefixLength = destPrefix.listingPrefix().length();
+    deleteKeys(
+        relativeKeys.stream().map(destPrefix::key).toList(), key -> key.substring(prefixLength));
+  }
+
+  /**
+   * Deletes full bucket keys in chunks of up to {@link #MAX_DELETE_BATCH_SIZE}.
+   *
+   * @param changelogEntry maps a deleted bucket key to the entry recorded in the changelog
+   */
+  private void deleteKeys(Collection<String> keys, Function<String, String> changelogEntry) {
     if (keys.isEmpty()) {
       return;
     }
@@ -333,7 +359,7 @@ public class S3MigrationService {
       try {
         DeleteObjectsResponse response = destClient.deleteObjects(request);
         List<String> deletedKeys = response.deleted().stream().map(DeletedObject::key).toList();
-        deletedKeys.forEach(changeLogService::addDeleted);
+        deletedKeys.stream().map(changelogEntry).forEach(changeLogService::addDeleted);
         logKeys("Deleted from destination bucket", deletedKeys);
         if (response.hasErrors()) {
           response

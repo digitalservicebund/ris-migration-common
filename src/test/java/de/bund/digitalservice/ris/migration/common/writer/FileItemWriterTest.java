@@ -95,6 +95,17 @@ class FileItemWriterTest {
   }
 
   @Test
+  void writeToOutput_writesFileAtRelativePath(@TempDir Path outDir) {
+    FileItemWriter.writeToOutput(new TestItem("DOC001", "<data/>"), outDir.toString(), ".akn.xml");
+
+    assertThat(FileItemWriter.relativePath("DOC001", ".akn.xml"))
+        .isEqualTo("DOC001/DOC001.akn.xml");
+    assertThat(outDir.resolve(FileItemWriter.relativePath("DOC001", ".akn.xml")))
+        .isRegularFile()
+        .hasContent("<data/>");
+  }
+
+  @Test
   void write_emptyChunk_writesNothing(@TempDir Path outDir) throws Exception {
     var writer = new FileItemWriter<TestItem>(outDir.toString(), ".xml");
     writer.open(new ExecutionContext());
