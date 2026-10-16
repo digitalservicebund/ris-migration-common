@@ -89,6 +89,22 @@ public class FileItemWriter<T extends MigrationOutputItem> implements ItemStream
   }
 
   /**
+   * Path a document is written to, relative to the output directory ({@code docNum/docNum.ext}).
+   * Since the publishing step uploads the output directory as-is, this is also the document's key
+   * below the destination prefix, so projects deleting published documents should build their keys
+   * with it rather than by hand.
+   *
+   * @param documentNumber number of the document
+   * @param fileExtension extension appended to the document number, e.g. {@code ".akn.xml"}
+   * @return the relative path, always using {@code /} as separator
+   */
+  public static String relativePath(String documentNumber, String fileExtension) {
+    // The String format function uses the first argument twice, e.g.
+    // String.format("%1$s/%1$s%2$s", "doc", ".xml") -> "doc/doc.xml"
+    return String.format("%1$s/%1$s%2$s", documentNumber, fileExtension);
+  }
+
+  /**
    * Writes one item into a per-document subdirectory ({@code docNum/docNum.ext}). Exposed for steps
    * that publish a document outside the chunk-oriented writer.
    *
@@ -105,12 +121,8 @@ public class FileItemWriter<T extends MigrationOutputItem> implements ItemStream
       T item, String outputDirectory, String fileExtension, Function<T, String> contentExtractor) {
     try {
       Path outputDir = Path.of(outputDirectory).toAbsolutePath().normalize();
-      // The String format function uses the first argument twice, e.g.
-      // String.format("%1$s/%1$s%2$s", "doc", ".xml") -> "doc/doc.xml"
       Path targetPath =
-          outputDir
-              .resolve(String.format("%1$s/%1$s%2$s", item.getDocumentNumber(), fileExtension))
-              .normalize();
+          outputDir.resolve(relativePath(item.getDocumentNumber(), fileExtension)).normalize();
       if (!targetPath.startsWith(outputDir)) {
         throw new IllegalArgumentException("Invalid document number: " + item.getDocumentNumber());
       }
