@@ -16,6 +16,11 @@ public class PrintTimeUsedStepListener implements StepExecutionListener {
 
   private static final ZoneId ZONE = ZoneId.of("Europe/Berlin");
 
+  /**
+   * Logs the step start.
+   *
+   * @param stepExecution Execution of the step that just started.
+   */
   @Override
   public void beforeStep(StepExecution stepExecution) {
     log.info(StringUtils.center(" STEP START ", 30, "#"));
@@ -26,7 +31,7 @@ public class PrintTimeUsedStepListener implements StepExecutionListener {
   /**
    * Logs the step's duration as {@code hh:mm:ss.SSS}.
    *
-   * @param stepExecution execution of the step that just finished
+   * @param stepExecution Execution of the step that just finished
    * @return {@code null} to leave the step's exit status unchanged
    */
   @Override
