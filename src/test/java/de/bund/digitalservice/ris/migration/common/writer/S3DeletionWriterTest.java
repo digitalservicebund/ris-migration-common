@@ -3,6 +3,7 @@ package de.bund.digitalservice.ris.migration.common.writer;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import de.bund.digitalservice.ris.migration.common.model.DocumentNumberReference;
@@ -29,7 +30,9 @@ class S3DeletionWriterTest {
 
   @BeforeEach
   void setUp() {
-    writer = new S3DeletionWriter<>(s3MigrationService, recordFinder, recordDeleter, ".akn.xml");
+    writer =
+        new S3DeletionWriter<>(
+            s3MigrationService, recordFinder, recordDeleter, List.of(".akn.xml"));
   }
 
   @Test
@@ -38,7 +41,7 @@ class S3DeletionWriterTest {
 
     writer.write(new Chunk<>(List.of(DocumentNumberReference.of("DOC001"))));
 
-    verify(s3MigrationService).delete("DOC001.akn.xml");
+    verify(s3MigrationService).deleteDocuments(List.of("DOC001/DOC001.akn.xml"));
     verify(recordFinder).apply("DOC001");
     verify(recordDeleter).accept("entity-DOC001");
   }
@@ -49,21 +52,29 @@ class S3DeletionWriterTest {
 
     writer.write(new Chunk<>(List.of(DocumentNumberReference.of("MISSING"))));
 
-    verify(s3MigrationService).delete("MISSING.akn.xml");
+    verify(s3MigrationService).deleteDocuments(List.of("MISSING/MISSING.akn.xml"));
     verify(recordDeleter, never()).accept(any());
   }
 
   @Test
-  void write_multipleReferences_processesAll() {
+  void write_multipleReferencesAndExtensions_deletesAllFilesInOneRequest() {
+    S3DeletionWriter<String> multiExtensionWriter =
+        new S3DeletionWriter<>(
+            s3MigrationService, recordFinder, recordDeleter, List.of(".xml", ".html"));
     when(recordFinder.apply("DOC001")).thenReturn(Optional.of("entity1"));
     when(recordFinder.apply("DOC002")).thenReturn(Optional.of("entity2"));
 
-    writer.write(
+    multiExtensionWriter.write(
         new Chunk<>(
             List.of(DocumentNumberReference.of("DOC001"), DocumentNumberReference.of("DOC002"))));
 
-    verify(s3MigrationService).delete("DOC001.akn.xml");
-    verify(s3MigrationService).delete("DOC002.akn.xml");
+    verify(s3MigrationService)
+        .deleteDocuments(
+            List.of(
+                "DOC001/DOC001.xml",
+                "DOC001/DOC001.html",
+                "DOC002/DOC002.xml",
+                "DOC002/DOC002.html"));
     verify(recordDeleter).accept("entity1");
     verify(recordDeleter).accept("entity2");
   }
@@ -72,13 +83,13 @@ class S3DeletionWriterTest {
   void write_emptyChunk_doesNothing() {
     writer.write(new Chunk<>(List.of()));
 
-    verify(s3MigrationService, never()).delete(any());
+    verifyNoInteractions(s3MigrationService, recordFinder, recordDeleter);
   }
 
   @Test
   void write_localMode_skipsS3DeleteButStillDeletesRecord() {
     S3DeletionWriter<String> localWriter =
-        new S3DeletionWriter<>(null, recordFinder, recordDeleter, ".akn.xml");
+        new S3DeletionWriter<>(null, recordFinder, recordDeleter, List.of(".akn.xml"));
     when(recordFinder.apply("DOC001")).thenReturn(Optional.of("entity-DOC001"));
 
     localWriter.write(new Chunk<>(List.of(DocumentNumberReference.of("DOC001"))));
