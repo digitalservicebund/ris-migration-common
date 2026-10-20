@@ -7,8 +7,12 @@ import static org.mockito.Mockito.when;
 import java.time.LocalDateTime;
 import java.time.Month;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.batch.core.step.StepExecution;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
+@ExtendWith(OutputCaptureExtension.class)
 class PrintTimeUsedStepListenerTest {
 
   @Test
@@ -35,5 +39,20 @@ class PrintTimeUsedStepListenerTest {
 
     var result = listener.afterStep(stepExecution);
     assertThat(result).isNull();
+  }
+
+  @Test
+  void beforeStep(CapturedOutput output) {
+    var listener = new PrintTimeUsedStepListener();
+    var stepExecution = mock(StepExecution.class);
+    when(stepExecution.getStepName()).thenReturn("processXmlFilesStep");
+
+    listener.beforeStep(stepExecution);
+
+    assertThat(output.getOut())
+        .containsSubsequence(
+            "######### STEP START #########",
+            "processXmlFilesStep",
+            "##############################");
   }
 }
