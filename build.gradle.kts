@@ -16,7 +16,7 @@ repositories {
 }
 
 group = "de.bund.digitalservice.ris"
-version = System.getenv("RELEASE_VERSION") ?: "0.8.1"
+version = System.getenv("RELEASE_VERSION") ?: "0.11.0"
 
 java {
   toolchain {
