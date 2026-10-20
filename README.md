@@ -30,16 +30,16 @@ project's database schema fully independent of the library's release version.
 
 ### What it provides
 
-| Area | Classes |
-|---|---|
-| Reading source files | `FileItemReader`, `XmlDocumentItemReader`, `DeletionCsvItemReaderFactory` |
-| Writing output | `FileItemWriter<T extends MigrationOutputItem>`, `S3DeletionWriter<T>` |
-| S3 transfer (cloud profile) | `S3MigrationService`, `BucketPrefixBuilder`, `ChangeLogService` |
-| Migration checkpoint | `MigrationStatusService`, `MigrationStatusUpdater` (you implement this) |
-| Step/chunk listeners | `PrintTimeUsedStepListener`, `PrintProcessedItemsChunkListener`, `PrintMigrationErrorsListener`, `NoDataFoundStepListener` |
-| Publishing | `PublishTasklet` |
-| Configuration | `MigrationJobProperties` (`app.*` properties) |
-| Shared model types | `MigrationStatus`, `MigrationErrorType`, `CountedError`, `JurisDocument`, `DocumentNumberReference` |
+| Area                        | Classes                                                                                                                    |
+|-----------------------------|----------------------------------------------------------------------------------------------------------------------------|
+| Reading source files        | `FileItemReader`, `XmlDocumentItemReader`, `DeletionCsvItemReaderFactory`                                                  |
+| Writing output              | `FileItemWriter<T extends MigrationOutputItem>`, `S3DeletionWriter<T>`                                                     |
+| S3 transfer (cloud profile) | `S3MigrationService`, `BucketPrefixBuilder`, `ChangeLogService`                                                            |
+| Migration checkpoint        | `MigrationStatusService`, `MigrationStatusUpdater` (you implement this)                                                    |
+| Step/chunk listeners        | `PrintTimeUsedStepListener`, `PrintProcessedItemsChunkListener`, `PrintMigrationErrorsListener`, `NoDataFoundStepListener` |
+| Publishing                  | `PublishTasklet`                                                                                                           |
+| Configuration               | `MigrationJobProperties` (`app.*` properties)                                                                              |
+| Shared model types          | `MigrationStatus`, `MigrationErrorType`, `CountedError`, `JurisDocument`, `DocumentNumberReference`                        |
 
 ## B. How to integrate
 
@@ -85,10 +85,10 @@ own small `@ConfigurationProperties` class for it rather than extending this one
 
 The library registers two auto-configurations:
 
-| Class | Active when | Beans registered |
-|---|---|---|
-| `MigrationAutoConfiguration` | always | `ChangeLogService`, `ImportService`, and `MigrationStatusService` (only once you expose a `MigrationStatusUpdater` bean — see step 5) |
-| `S3AutoConfiguration` | `@Profile("cloud")` | `S3MigrationService`, plus default `BucketPrefixBuilder`/`s3KeyFilter` beans |
+| Class                        | Active when         | Beans registered                                                                                                                      |
+|------------------------------|---------------------|---------------------------------------------------------------------------------------------------------------------------------------|
+| `MigrationAutoConfiguration` | always              | `ChangeLogService`, `ImportService`, and `MigrationStatusService` (only once you expose a `MigrationStatusUpdater` bean — see step 5) |
+| `S3AutoConfiguration`        | `@Profile("cloud")` | `S3MigrationService`, plus default `BucketPrefixBuilder`/`s3KeyFilter` beans                                                          |
 
 No `@EntityScan` or `@EnableJpaRepositories` is required for anything in this library — it has no
 entities of its own.
@@ -125,10 +125,10 @@ aws:
 
 Optional overrides:
 
-| Bean | Purpose | Default |
-|---|---|---|
-| `BucketPrefixBuilder` | Adds a sub-path inside S3 prefixes | `""` (no sub-path) |
-| `Predicate<String> s3KeyFilter` (name `s3KeyFilter`) | Filters which S3 keys are downloaded | accept all |
+| Bean                                                 | Purpose                              | Default            |
+|------------------------------------------------------|--------------------------------------|--------------------|
+| `BucketPrefixBuilder`                                | Adds a sub-path inside S3 prefixes   | `""` (no sub-path) |
+| `Predicate<String> s3KeyFilter` (name `s3KeyFilter`) | Filters which S3 keys are downloaded | accept all         |
 
 Example — a project needs a `"BZSt/"` sub-folder and only downloads `.xml` keys:
 
@@ -441,13 +441,13 @@ public class MigrationJobConfig {
 
 #### Listeners available
 
-| Class | Attach to |
-|---|---|
-| `PrintTimeUsedStepListener` | any step |
-| `PrintProcessedItemsChunkListener` | any chunk-oriented step |
-| `PrintMigrationErrorsListener` | the final step; needs a `Supplier<List<CountedError>>` and a `LongSupplier` for your error/record counts |
-| `NoDataFoundStepListener` | a source-reading step; sets exit status `NO_DATA_FOUND` when it (and any named companion steps) read zero items |
-| `MigrationStatusService` (call manually) | status-update tasklet after a successful run |
+| Class                                    | Attach to                                                                                                       |
+|------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
+| `PrintTimeUsedStepListener`              | any step                                                                                                        |
+| `PrintProcessedItemsChunkListener`       | any chunk-oriented step; the running total resets at the start of each step execution                           |
+| `PrintMigrationErrorsListener`           | the final step; needs a `Supplier<List<CountedError>>` and a `LongSupplier` for your error/record counts        |
+| `NoDataFoundStepListener`                | a source-reading step; sets exit status `NO_DATA_FOUND` when it (and any named companion steps) read zero items |
+| `MigrationStatusService` (call manually) | status-update tasklet after a successful run                                                                    |
 
 `PrintMigrationErrorsListener` takes a `Supplier<List<CountedError>>` (your error-count query) and a
 `LongSupplier` (your failed-documents count query):
