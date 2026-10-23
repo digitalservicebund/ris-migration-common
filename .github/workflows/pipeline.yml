@@ -122,4 +122,4 @@ jobs:
 
   generate-docs:
     if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
-    uses: digitalservicebund/ris-migration-common/.github/workflows/docs-generate.yml@d661e284515901f72c0ca6b60575d8cb8ad38762
+    uses: digitalservicebund/ris-migration-common/.github/workflows/docs-generate.yml@07d34a14c09c279cab1947734a726cbec025205d
