@@ -1,4 +1,5 @@
 import com.diffplug.spotless.LineEnding
+import com.github.jk1.license.filter.LicenseBundleNormalizer
 import org.gradle.api.plugins.quality.Checkstyle
 
 plugins {
@@ -6,6 +7,7 @@ plugins {
   id("io.spring.dependency-management") version "1.1.7"
   id("org.sonarqube") version "7.5.0.8588"
   id("com.diffplug.spotless") version "8.10.4"
+  id("com.github.jk1.dependency-license-report") version "3.1.5"
   id("jacoco")
   id("checkstyle")
   `maven-publish`
@@ -62,6 +64,18 @@ spotless {
   if (System.getProperty("os.name", "undefined").contains("Windows")) {
     lineEndings = LineEnding.UNIX
   }
+}
+
+licenseReport {
+// If there's a new dependency with a yet unknown license causing this task to fail
+// the license(s) will be listed in build/reports/dependency-license/dependencies-without-allowed-license.json
+  allowedLicensesFile = File("$projectDir/allowed-licenses.json")
+  filters =
+    arrayOf(
+      // With second arg true we get the default transformations:
+      // https://github.com/jk1/Gradle-License-Report/blob/7cf695c38126b63ef9e907345adab84dfa92ea0e/src/main/resources/default-license-normalizer-bundle.json
+      LicenseBundleNormalizer(null as String?, true),
+    )
 }
 
 checkstyle {

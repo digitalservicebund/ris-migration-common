@@ -5,9 +5,9 @@ permissions:
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
-    branches: [main]
+    branches: [ main ]
   workflow_dispatch:
   workflow_call:
 
@@ -28,12 +28,12 @@ jobs:
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c
       - name: Check style
         run: ./gradlew spotlessCheck
-#      - name: Send status to Slack
-#        uses: digitalservicebund/notify-on-failure-gha@671832f192aee0a068fd92b2f6deb975df794a84 # v1.6.1
-#        if: ${{ failure() && github.ref == 'refs/heads/main' }}
-#        with:
-#          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-#          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+  #      - name: Send status to Slack
+  #        uses: digitalservicebund/notify-on-failure-gha@671832f192aee0a068fd92b2f6deb975df794a84 # v1.6.1
+  #        if: ${{ failure() && github.ref == 'refs/heads/main' }}
+  #        with:
+  #          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+  #          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
 
   build:
     runs-on: ubuntu-latest
@@ -49,20 +49,33 @@ jobs:
         uses: gradle/actions/wrapper-validation@8da46b539cd8fe6ab27ca75128919a18d757604c
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c
-      - name: Build with Gradle
-        run: ./gradlew build jacocoTestReport
+      - name: Build, test, check licenses
+        run: ./gradlew build checkLicense jacocoTestReport
+      - name: Upload test report artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: test-report
+          path: build/reports/tests/test
+          if-no-files-found: warn
       - name: Upload coverage artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: jacoco-report
           path: build/reports/jacoco/test/jacocoTestReport.xml
           if-no-files-found: error
-#      - name: Send status to Slack
-#        uses: digitalservicebund/notify-on-failure-gha@671832f192aee0a068fd92b2f6deb975df794a84 # v1.6.1
-#        if: ${{ failure() && github.ref == 'refs/heads/main' }}
-#        with:
-#          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-#          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+      - name: Upload licence report
+        if: success() || failure() # but not manually cancelled
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: license-report
+          retention-days: 3
+          path: build/reports/dependency-license/index.html
+  #      - name: Send status to Slack
+  #        uses: digitalservicebund/notify-on-failure-gha@671832f192aee0a068fd92b2f6deb975df794a84 # v1.6.1
+  #        if: ${{ failure() && github.ref == 'refs/heads/main' }}
+  #        with:
+  #          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+  #          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
 
   sonarqube-quality-gate:
     if: ${{ success() && github.actor != 'dependabot[bot]' }}
@@ -122,4 +135,16 @@ jobs:
 
   generate-docs:
     if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
-    uses: digitalservicebund/ris-migration-common/.github/workflows/docs-generate.yml@2d5fa42bfbdde449514c20b82a0f49dc1c1f136e
+    uses: ./.github/workflows/docs-generate.yml
+
+  push-reports:
+    if: ${{ success() && github.ref == 'refs/heads/main' }}
+    needs:
+      - generate-docs
+      - style-check
+      - build
+      - sonarqube-quality-gate
+    uses: ./.github/workflows/docs-push-reports.yml
+    secrets:
+      REPORTS_BUCKET_ACCESS_KEY_ID: ${{ secrets.REPORTS_BUCKET_ACCESS_KEY_ID }}
+      REPORTS_BUCKET_SECRET_ACCESS_KEY: ${{ secrets.REPORTS_BUCKET_SECRET_ACCESS_KEY }}

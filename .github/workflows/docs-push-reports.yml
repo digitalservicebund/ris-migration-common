@@ -1,0 +1,65 @@
+name: Push reports
+
+on:
+  workflow_call:
+    secrets:
+      REPORTS_BUCKET_ACCESS_KEY_ID:
+        required: true
+      REPORTS_BUCKET_SECRET_ACCESS_KEY:
+        required: true
+
+permissions:
+  contents: read
+
+# Reports are stored under the name of the repository that triggered the run, so callers of the
+# reusable pipeline.yml (e.g. ris-assertions-common) publish to their own folders.
+env:
+  REPOSITORY_NAME: ${{ github.event.repository.name }}
+
+jobs:
+  push-reports-to-ris-reports:
+    runs-on: ubuntu-latest
+    steps:
+      ## Unit test report
+      - name: Download artifact test report
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: test-report
+          path: tmp/test-report/
+      - name: Add test report for push
+        uses: digitalservicebund/add-ris-report@31a248ea368f94bfa3a012da3c202bcc6be2debe
+        with:
+          filePath: tmp/test-report
+          destinationDir: test-reports/${{ env.REPOSITORY_NAME }}/tests
+          reportIsDirectory: true
+          BUCKET_ACCESS_KEY_ID: ${{ secrets.REPORTS_BUCKET_ACCESS_KEY_ID }}
+          BUCKET_SECRET_ACCESS_KEY: ${{ secrets.REPORTS_BUCKET_SECRET_ACCESS_KEY }}
+
+      ## License report
+      - name: Download artifact license report
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: license-report
+          path: tmp/license-report/
+      - name: Add license report for push
+        uses: digitalservicebund/add-ris-report@31a248ea368f94bfa3a012da3c202bcc6be2debe
+        with:
+          filePath: tmp/license-report/index.html
+          destinationDir: licence-reports/backend/${{ env.REPOSITORY_NAME }}
+          BUCKET_ACCESS_KEY_ID: ${{ secrets.REPORTS_BUCKET_ACCESS_KEY_ID }}
+          BUCKET_SECRET_ACCESS_KEY: ${{ secrets.REPORTS_BUCKET_SECRET_ACCESS_KEY }}
+
+      ## Code documentation
+      - name: Download code documentation
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: code-documentation
+          path: tmp/code-documentation/
+      - name: Add code documentation for push
+        uses: digitalservicebund/add-ris-report@31a248ea368f94bfa3a012da3c202bcc6be2debe
+        with:
+          filePath: tmp/code-documentation
+          destinationDir: code-documentation/backend/${{ env.REPOSITORY_NAME }}
+          reportIsDirectory: true
+          BUCKET_ACCESS_KEY_ID: ${{ secrets.REPORTS_BUCKET_ACCESS_KEY_ID }}
+          BUCKET_SECRET_ACCESS_KEY: ${{ secrets.REPORTS_BUCKET_SECRET_ACCESS_KEY }}
