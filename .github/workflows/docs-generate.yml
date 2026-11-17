@@ -6,8 +6,10 @@ on:
 permissions:
   contents: read
 
-# Called from pipeline.yml, which is itself reused by other repositories (e.g. ris-assertions-common).
-# Local actions (./.github/actions/...) would resolve against the caller's checkout, so the setup is inlined.
+# Java/Gradle are set up with explicit steps below instead of a shared composite action like
+# ris-literature's `./.github/actions/setup-java-gradle`. This workflow also runs when other repositories
+# (e.g. ris-assertions-common) call pipeline.yml, and there `./.github/actions/...` would be looked up in
+# the calling repository's checkout, where the action doesn't exist, so the step would fail.
 jobs:
   generate-code-documentation:
     runs-on: ubuntu-latest

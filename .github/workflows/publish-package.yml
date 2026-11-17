@@ -9,11 +9,21 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+"
   workflow_dispatch:
   workflow_call:
+    secrets:
+      SONAR_TOKEN:
+        required: true
+      REPORTS_BUCKET_ACCESS_KEY_ID:
+        required: true
+      REPORTS_BUCKET_SECRET_ACCESS_KEY:
+        required: true
 
 jobs:
   pipeline:
     uses: "./.github/workflows/pipeline.yml"
-    secrets: inherit
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      REPORTS_BUCKET_ACCESS_KEY_ID: ${{ secrets.REPORTS_BUCKET_ACCESS_KEY_ID }}
+      REPORTS_BUCKET_SECRET_ACCESS_KEY: ${{ secrets.REPORTS_BUCKET_SECRET_ACCESS_KEY }}
 
   publish:
     runs-on: ubuntu-latest

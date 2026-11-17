@@ -10,6 +10,13 @@ on:
     branches: [ main ]
   workflow_dispatch:
   workflow_call:
+    secrets:
+      SONAR_TOKEN:
+        required: true
+      REPORTS_BUCKET_ACCESS_KEY_ID:
+        required: true
+      REPORTS_BUCKET_SECRET_ACCESS_KEY:
+        required: true
 
 jobs:
   style-check:
