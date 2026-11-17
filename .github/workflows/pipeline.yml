@@ -57,6 +57,40 @@ jobs:
           name: test-report
           path: build/reports/tests/test
           if-no-files-found: warn
+
+      # Allure 2: copy previous report's history/ into allure-results before
+      # generating the next report so Trends accumulate across CI runs.
+      # Source is the history/ inside the last published report (add-ris-report
+      # writes …/allure-tests/latest/). See https://allurereport.org/docs/history-and-retries/
+      - name: Restore Allure history from S3
+        continue-on-error: true
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.REPORTS_BUCKET_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.REPORTS_BUCKET_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: eu01
+          AWS_ENDPOINT_URL_S3: https://object.storage.eu01.onstackit.cloud/
+          REPOSITORY_NAME: ${{ github.event.repository.name }}
+        run: |
+          if [ -z "$AWS_ACCESS_KEY_ID" ]; then
+            echo "No reports bucket credentials; skipping Allure history restore"
+            exit 0
+          fi
+          mkdir -p build/allure-results/history
+          aws s3 sync \
+            "s3://ds-ris-reports-prod/test-reports/${REPOSITORY_NAME}/allure-tests/latest/history/" \
+            build/allure-results/history/ \
+            || true
+
+      - name: Generate Allure test report
+        run: ./gradlew allureReport --no-daemon
+
+      - name: Upload Allure test report artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: backend-allure-test-report
+          path: build/reports/allure-report/allureReport
+          if-no-files-found: warn
+
       - name: Upload coverage artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
